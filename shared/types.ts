@@ -9,6 +9,9 @@ export interface Composition {
   height: number;
   padding: number;
   radius: number;
+  radii?: [number, number, number, number];
+  radiiLinked?: boolean;
+  snap?: boolean;
   background: string;
   muted: boolean;
   fps: number;
@@ -61,7 +64,7 @@ export interface Events {
   recording: boolean;
   error: string;
   'capture-stop': undefined;
-  'picker-region': Rect;
+  'picker-region': { rect: Rect; bounds: Rect };
 }
 export interface CaptureSession {
   rect: Rect;
@@ -82,6 +85,7 @@ export interface CutterAPI {
   movePicker(rect: Rect | null): Promise<void>;
   pickerInit(): Promise<{
     settings: Settings;
+    viewport: Rect;
     display: { id: number; bounds: Rect; scaleFactor: number };
   }>;
   capture(data: { rect: Rect; mode: 'screenshot' | 'record' }): Promise<void>;

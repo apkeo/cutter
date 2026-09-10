@@ -3,6 +3,13 @@ import Icon from './components/Icon.vue';
 import { useEditor, time } from './useEditor';
 
 const {
+  magnifier,
+  loupe,
+  showLoupe,
+  hideLoupe,
+  guides,
+  corners,
+  changeCorner,
   api,
   settings,
   composition,
@@ -46,7 +53,6 @@ const {
   resetCrop,
   preset,
   background,
-  seek,
   play,
   cropPointer,
   trimPointer,
@@ -65,6 +71,18 @@ const handles = ['n', 's', 'e', 'w', 'nw', 'ne', 'sw', 'se'];
 </script>
 
 <template>
+  <Teleport to="body">
+    <div
+      id="pixel-loupe"
+      v-show="loupe.visible"
+      :style="{ left: loupe.left + 'px', top: loupe.top + 'px' }"
+    >
+      <canvas ref="magnifier" width="204" height="204" />
+      <div>
+        <span>{{ loupe.x }}, {{ loupe.y }} px</span><span>12×</span>
+      </div>
+    </div>
+  </Teleport>
   <header class="titlebar">
     <div class="brand">
       <span class="brand-mark">c</span> cutter<span class="version">STUDIO</span>
@@ -130,6 +148,11 @@ const handles = ['n', 's', 'e', 'w', 'nw', 'ne', 'sw', 'se'];
                 {{ t('cropSource') }}
               </button>
             </div>
+            <label v-if="cropMode" class="snap-toggle"
+              ><input id="snap-crop" type="checkbox" v-model="composition.snap" />{{
+                text('Snap to edges · Alt to bypass', 'Przyciągaj do krawędzi · Alt wyłącza')
+              }}</label
+            >
             <div class="stage-info">
               <span id="canvas-info">{{ composition.width }} × {{ composition.height }}</span
               ><span class="separator"></span
@@ -174,7 +197,24 @@ const handles = ['n', 's', 'e', 'w', 'nw', 'ne', 'sw', 'se'];
             </div>
             <div id="canvas-wrap" class="canvas-wrap" v-show="media" :style="previewStyle">
               <canvas id="preview" ref="canvas"></canvas>
-              <div id="crop-box" v-show="cropMode" :style="cropStyle" @pointerdown="cropPointer">
+              <div
+                v-if="cropMode && guides.x !== undefined"
+                class="snap-guide vertical"
+                :style="{ left: (guides.x / media!.width) * 100 + '%' }"
+              />
+              <div
+                v-if="cropMode && guides.y !== undefined"
+                class="snap-guide horizontal"
+                :style="{ top: (guides.y / media!.height) * 100 + '%' }"
+              />
+              <div
+                id="crop-box"
+                v-show="cropMode"
+                :style="cropStyle"
+                @pointerdown="cropPointer"
+                @pointermove="showLoupe"
+                @pointerleave="hideLoupe"
+              >
                 <span class="crop-size"
                   >{{ composition.crop.width }} × {{ composition.crop.height }}</span
                 ><i
@@ -201,17 +241,7 @@ const handles = ['n', 's', 'e', 'w', 'nw', 'ne', 'sw', 'se'];
               <Icon :name="playing ? 'pause' : 'play'" /></button
             ><span id="time-display"
               >{{ time(currentTime) }} <span>/ {{ time(media?.duration || 0) }}</span></span
-            ><input
-              id="scrub"
-              type="range"
-              step="0.001"
-              aria-label="Playhead"
-              :min="0"
-              :max="media?.duration || 1"
-              :value="currentTime"
-              :disabled="!isVideo"
-              @input="seek(Number(($event.target as HTMLInputElement).value))"
-            /><span id="source-badge" class="muted">{{ sourceLabel }}</span>
+            ><span id="source-badge" class="muted">{{ sourceLabel }}</span>
           </div>
           <div class="timeline">
             <div class="timeline-head">
@@ -221,14 +251,14 @@ const handles = ['n', 's', 'e', 'w', 'nw', 'ne', 'sw', 'se'];
                 ><span class="keycap">I</span><span class="keycap">O</span>
               </div>
             </div>
-            <div class="timeline-ruler">
+            <div class="timeline-ruler" @pointerdown="timelineSeek">
               <span>00:00</span
               ><span id="ruler-quarter">{{ time((media?.duration || 0) * 0.25).slice(0, 5) }}</span
               ><span id="ruler-half">{{ time((media?.duration || 0) * 0.5).slice(0, 5) }}</span
               ><span id="ruler-three">{{ time((media?.duration || 0) * 0.75).slice(0, 5) }}</span
               ><span id="ruler-end">{{ time((media?.duration || 0) * 1).slice(0, 5) }}</span>
             </div>
-            <div id="timeline-track" class="timeline-track" @click="timelineSeek">
+            <div id="timeline-track" class="timeline-track" @pointerdown="timelineSeek">
               <div id="clip" class="clip" :class="{ loaded: media }" :style="clipStyle">
                 <div
                   id="trim-left"
@@ -338,26 +368,40 @@ const handles = ['n', 's', 'e', 'w', 'nw', 'ne', 'sw', 'se'];
               @change="normalize"
             />
             <div class="slider-label">
-              <label for="radius">{{ t('radius') }}</label>
-              <div>
+              <label>{{ t('radius') }}</label
+              ><span>px</span>
+            </div>
+            <div class="corner-grid">
+              <label v-for="(corner, index) in corners" :key="index" :class="'corner-' + index">
+                <span>{{
+                  [
+                    text('Top left', 'Lewy górny'),
+                    text('Top right', 'Prawy górny'),
+                    text('Bottom right', 'Prawy dolny'),
+                    text('Bottom left', 'Lewy dolny'),
+                  ][index]
+                }}</span>
                 <input
-                  id="radius-value"
+                  :id="index === 0 ? 'radius-value' : 'radius-' + index"
                   type="number"
                   min="0"
                   max="2000"
-                  v-model.number="composition.radius"
-                  @change="normalize"
-                /><span>px</span>
-              </div>
+                  step="1"
+                  :value="Math.round(corner * 100) / 100"
+                  @change="changeCorner(index, Number(($event.target as HTMLInputElement).value))"
+                />
+              </label>
+              <button
+                id="link-corners"
+                class="corner-link"
+                :class="{ active: composition.radiiLinked !== false }"
+                :aria-pressed="composition.radiiLinked !== false"
+                :title="text('Link corner proportions', 'Połącz proporcje rogów')"
+                @click="composition.radiiLinked = composition.radiiLinked === false"
+              >
+                <Icon name="link" />
+              </button>
             </div>
-            <input
-              id="radius"
-              type="range"
-              min="0"
-              max="200"
-              v-model.number="composition.radius"
-              @change="normalize"
-            />
             <div class="crop-fields">
               <label
                 >X<input
@@ -542,7 +586,7 @@ const handles = ['n', 's', 'e', 'w', 'nw', 'ne', 'sw', 'se'];
           ><span id="status">{{
             loading ? text('Preparing media…', 'Przygotowywanie mediów…') : status || t('ready')
           }}</span></span
-        ><span>CUTTER <span class="muted">/</span> 1.1</span>
+        ><span>CUTTER <span class="muted">/</span> 1.2</span>
       </footer>
     </main>
   </div>

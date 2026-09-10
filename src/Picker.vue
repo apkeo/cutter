@@ -9,6 +9,14 @@ const toolbar = ref<HTMLElement>();
 const working = ref(false);
 const language = ref('en');
 const error = ref('');
+const viewport = reactive({ x: 0, y: 0, width: innerWidth, height: innerHeight });
+const displayBounds = reactive({ ...viewport });
+const surfaceStyle = computed(() => ({
+  left: displayBounds.x - viewport.x + 'px',
+  top: displayBounds.y - viewport.y + 'px',
+  width: displayBounds.width + 'px',
+  height: displayBounds.height + 'px',
+}));
 const toolbarSize = ref({ width: 350, height: 52 });
 const handles = ['n', 's', 'e', 'w', 'nw', 'ne', 'sw', 'se'];
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
@@ -23,18 +31,18 @@ const toolbarStyle = computed(() => ({
     clamp(
       rect.x + rect.width / 2 - toolbarSize.value.width / 2,
       8,
-      innerWidth - toolbarSize.value.width - 8,
+      displayBounds.width - toolbarSize.value.width - 8,
     ) + 'px',
   top:
-    (rect.y + rect.height + 12 + toolbarSize.value.height < innerHeight
+    (rect.y + rect.height + 12 + toolbarSize.value.height < displayBounds.height
       ? rect.y + rect.height + 12
       : Math.max(8, rect.y - toolbarSize.value.height - 12)) + 'px',
 }));
 function normalize() {
-  rect.x = clamp(rect.x, 0, innerWidth - 2);
-  rect.y = clamp(rect.y, 0, innerHeight - 2);
-  rect.width = clamp(rect.width, 2, innerWidth - rect.x);
-  rect.height = clamp(rect.height, 2, innerHeight - rect.y);
+  rect.x = clamp(rect.x, 0, displayBounds.width - 2);
+  rect.y = clamp(rect.y, 0, displayBounds.height - 2);
+  rect.width = clamp(rect.width, 2, displayBounds.width - rect.x);
+  rect.height = clamp(rect.height, 2, displayBounds.height - rect.y);
 }
 function pointer(e: PointerEvent) {
   if (working.value || e.button !== 0 || toolbar.value?.contains(e.target as Node)) return;
@@ -42,19 +50,24 @@ function pointer(e: PointerEvent) {
   const target = e.target as HTMLElement,
     selection = Boolean(target.closest('#selection')),
     handle = target.dataset.handle || '',
-    start = { x: e.clientX, y: e.clientY },
+    start = {
+      x: e.clientX - displayBounds.x + viewport.x,
+      y: e.clientY - displayBounds.y + viewport.y,
+    },
     old = { ...rect },
     element = e.currentTarget as HTMLElement;
   element.setPointerCapture(e.pointerId);
   if (selection && !handle) void api.movePicker({ ...rect });
   if (!selection) Object.assign(rect, { x: start.x, y: start.y, width: 2, height: 2 });
   element.onpointermove = (ev) => {
-    const dx = ev.clientX - start.x,
-      dy = ev.clientY - start.y;
+    const localX = ev.clientX - displayBounds.x + viewport.x,
+      localY = ev.clientY - displayBounds.y + viewport.y;
+    const dx = localX - start.x,
+      dy = localY - start.y;
     if (!selection)
       Object.assign(rect, {
-        x: Math.min(start.x, ev.clientX),
-        y: Math.min(start.y, ev.clientY),
+        x: Math.min(start.x, localX),
+        y: Math.min(start.y, localY),
         width: Math.abs(dx),
         height: Math.abs(dy),
       });
@@ -65,9 +78,9 @@ function pointer(e: PointerEvent) {
         right = old.x + old.width,
         bottom = old.y + old.height;
       if (handle.includes('w')) x = clamp(old.x + dx, 0, right - 2);
-      if (handle.includes('e')) right = clamp(right + dx, x + 2, innerWidth);
+      if (handle.includes('e')) right = clamp(right + dx, x + 2, displayBounds.width);
       if (handle.includes('n')) y = clamp(old.y + dy, 0, bottom - 2);
-      if (handle.includes('s')) bottom = clamp(bottom + dy, y + 2, innerHeight);
+      if (handle.includes('s')) bottom = clamp(bottom + dy, y + 2, displayBounds.height);
       Object.assign(rect, { x, y, width: right - x, height: bottom - y });
     }
     normalize();
@@ -93,7 +106,10 @@ function keyboard(e: KeyboardEvent) {
   if (e.key === 'Enter') void capture('screenshot');
 }
 let observer: ResizeObserver;
-const unsubscribe = api.on('picker-region', (moved) => Object.assign(rect, moved));
+const unsubscribe = api.on('picker-region', (moved) => {
+  Object.assign(rect, moved.rect);
+  Object.assign(displayBounds, moved.bounds);
+});
 onMounted(async () => {
   document.body.classList.add('picker-body');
   document.addEventListener('keydown', keyboard);
@@ -102,17 +118,19 @@ onMounted(async () => {
       toolbarSize.value = { width: toolbar.value.offsetWidth, height: toolbar.value.offsetHeight };
   });
   if (toolbar.value) observer.observe(toolbar.value);
-  const { settings, display } = await api.pickerInit();
+  const { settings, display, viewport: bounds } = await api.pickerInit();
+  Object.assign(viewport, bounds);
+  Object.assign(displayBounds, display.bounds);
   language.value = settings.language;
   Object.assign(
     rect,
     settings.region?.displayId === display.id
       ? settings.region
       : {
-          x: Math.round(innerWidth * 0.2),
-          y: Math.round(innerHeight * 0.2),
-          width: Math.round(innerWidth * 0.6),
-          height: Math.round(innerHeight * 0.5),
+          x: Math.round(displayBounds.width * 0.2),
+          y: Math.round(displayBounds.height * 0.2),
+          width: Math.round(displayBounds.width * 0.6),
+          height: Math.round(displayBounds.height * 0.5),
         },
   );
   normalize();
@@ -126,7 +144,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="picker-surface" @pointerdown="pointer">
+  <div class="picker-surface" :style="surfaceStyle" @pointerdown="pointer">
     <div id="picker-help">
       {{ error || (language === 'pl' ? 'Przeciągnij, aby wybrać obszar' : 'Drag to select an area')
       }}<span>{{ language === 'pl' ? 'Esc — anuluj' : 'Esc to cancel' }}</span>
@@ -162,7 +180,7 @@ onUnmounted(() => {
 @use './styles/picker';
 .picker-surface {
   position: fixed;
-  inset: 0;
+  overflow: hidden;
   touch-action: none;
 }
 </style>

@@ -1,6 +1,7 @@
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, shallowRef, watch } from 'vue';
 import type { Composition, Media, Rect, Settings, ExportResult } from '../shared/types';
 import { en, pl } from './i18n';
+import { findEdge, fitCorners, scaleCorners, type Corners } from '../shared/crop';
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 const number = (value: unknown, fallback = 0) =>
@@ -12,6 +13,8 @@ const defaults: Composition = {
   height: 1080,
   padding: 64,
   radius: 8,
+  radiiLinked: true,
+  snap: true,
   background: '#d7e3d1',
   muted: false,
   fps: 30,
@@ -36,6 +39,78 @@ export function useEditor() {
   const stage = ref<HTMLElement>();
   const canvas = ref<HTMLCanvasElement>();
   const cropMode = ref(false);
+  const magnifier = ref<HTMLCanvasElement>();
+  const loupe = reactive({ visible: false, left: 0, top: 0, x: 0, y: 0 });
+  const guides = reactive<{ x?: number; y?: number }>({});
+  let pixels: ImageData | undefined;
+  let frame: HTMLCanvasElement | undefined;
+  const corners = computed<Corners>(
+    () =>
+      composition.radii || [
+        composition.radius,
+        composition.radius,
+        composition.radius,
+        composition.radius,
+      ],
+  );
+  function changeCorner(index: number, value: number) {
+    composition.radii = scaleCorners(
+      corners.value,
+      index,
+      value,
+      composition.radiiLinked !== false,
+    );
+    composition.radius = composition.radii[0];
+  }
+  function readFrame() {
+    if (!source.value || !media.value) return;
+    frame = document.createElement('canvas');
+    frame.width = media.value.width;
+    frame.height = media.value.height;
+    const context = frame.getContext('2d', { willReadFrequently: true })!;
+    context.drawImage(source.value, 0, 0, frame.width, frame.height);
+    pixels = context.getImageData(0, 0, frame.width, frame.height);
+  }
+  function hideLoupe() {
+    loupe.visible = false;
+  }
+  function showLoupe(e: PointerEvent) {
+    if (!cropMode.value || !media.value) return;
+    if (!pixels) readFrame();
+    if (!frame) return;
+    const bounds = canvas.value!.getBoundingClientRect();
+    const x = Math.round(clamp((e.clientX - bounds.left) / zoom.value, 0, media.value.width - 1));
+    const y = Math.round(clamp((e.clientY - bounds.top) / zoom.value, 0, media.value.height - 1));
+    Object.assign(loupe, {
+      visible: true,
+      x,
+      y,
+      left: clamp(e.clientX - 116, 8, innerWidth - 240),
+      top: e.clientY > 275 ? e.clientY - 265 : Math.min(innerHeight - 260, e.clientY + 28),
+    });
+    const context = magnifier.value?.getContext('2d');
+    if (!context) return;
+    context.imageSmoothingEnabled = false;
+    context.fillStyle = '#161b15';
+    context.fillRect(0, 0, 204, 204);
+    context.drawImage(frame, x - 8, y - 8, 17, 17, 0, 0, 204, 204);
+    context.strokeStyle = '#ffffff30';
+    context.lineWidth = 1;
+    context.beginPath();
+    for (let at = 0; at <= 204; at += 12) {
+      context.moveTo(at + 0.5, 0);
+      context.lineTo(at + 0.5, 204);
+      context.moveTo(0, at + 0.5);
+      context.lineTo(204, at + 0.5);
+    }
+    context.stroke();
+    context.strokeStyle = '#c0f28c';
+    context.lineWidth = 2;
+    context.strokeRect(96, 96, 12, 12);
+    const c = composition.crop;
+    context.strokeStyle = '#ffb574';
+    context.strokeRect((c.x - x + 8) * 12, (c.y - y + 8) * 12, c.width * 12, c.height * 12);
+  }
   const busy = ref(false);
   const loading = ref(false);
   const playing = ref(false);
@@ -62,6 +137,7 @@ export function useEditor() {
   let initialized = false,
     saveTimer: ReturnType<typeof setTimeout>,
     toastTimer: ReturnType<typeof setTimeout>,
+    playbackEnd = 0,
     animation = 0,
     observer: ResizeObserver;
   const disposers: (() => void)[] = [];
@@ -136,6 +212,8 @@ export function useEditor() {
       Math.min(composition.width, composition.height) / 2 - 1,
     );
     composition.radius = clamp(number(composition.radius, 8), 0, 2000);
+    if (composition.radii)
+      composition.radii = composition.radii.map((v) => clamp(number(v), 0, 2000)) as Corners;
     composition.fps = clamp(number(composition.fps, 30), 1, media.value?.fps || 60);
     if (media.value) {
       const m = media.value,
@@ -181,7 +259,7 @@ export function useEditor() {
       h,
       x: (composition.width - w) / 2,
       y: (composition.height - h) / 2,
-      r: Math.min(composition.radius, w / 2, h / 2),
+      r: fitCorners(corners.value, w, h),
     };
   }
   function draw() {
@@ -231,9 +309,9 @@ export function useEditor() {
   function animate() {
     if (source.value instanceof HTMLVideoElement && !source.value.paused) {
       currentTime.value = source.value.currentTime;
-      if (currentTime.value >= composition.end) {
+      if (currentTime.value >= playbackEnd) {
         stopPlayback();
-        seek(composition.start);
+        seek(playbackEnd);
       }
       draw();
     }
@@ -243,6 +321,9 @@ export function useEditor() {
     if (!m) return;
     stopPlayback();
     source.value = undefined;
+    pixels = undefined;
+    frame = undefined;
+    hideLoupe();
     media.value = m;
     cropMode.value = false;
     const saved = { ...settings.editor, crop: { ...settings.editor.crop } };
@@ -256,6 +337,7 @@ export function useEditor() {
     }
     normalize();
     const element = document.createElement(m.kind === 'video' ? 'video' : 'img');
+    element.crossOrigin = 'anonymous';
     if (element instanceof HTMLVideoElement) {
       element.preload = 'auto';
       element.playsInline = true;
@@ -277,6 +359,7 @@ export function useEditor() {
     currentTime.value = 0;
     if (element instanceof HTMLVideoElement) {
       element.addEventListener('seeked', () => {
+        pixels = undefined;
         currentTime.value = element.currentTime;
         draw();
       });
@@ -348,8 +431,8 @@ export function useEditor() {
     if (!(source.value instanceof HTMLVideoElement)) return;
     if (playing.value) stopPlayback();
     else {
-      if (currentTime.value < composition.start || currentTime.value >= composition.end)
-        seek(composition.start);
+      if (currentTime.value >= media.value!.duration) seek(composition.start);
+      playbackEnd = currentTime.value < composition.end ? composition.end : media.value!.duration;
       source.value
         .play()
         .then(() => (playing.value = true))
@@ -357,7 +440,10 @@ export function useEditor() {
     }
   }
   function cropPointer(event: PointerEvent) {
-    if (!media.value) return;
+    if (!media.value || event.button !== 0) return;
+    stopPlayback();
+    readFrame();
+    showLoupe(event);
     event.preventDefault();
     const element = event.currentTarget as HTMLElement;
     element.setPointerCapture(event.pointerId);
@@ -384,6 +470,60 @@ export function useEditor() {
         if (handle.includes('n')) top = clamp(origin.y + dy, 0, bottom - 1);
         if (handle.includes('s')) bottom = clamp(bottom + dy, top + 1, m.height);
       }
+      guides.x = undefined;
+      guides.y = undefined;
+      if (composition.snap !== false && !e.altKey && pixels) {
+        const tolerance = Math.min(24, 7 / zoom.value);
+        const sx = (v: number) => findEdge(pixels!, 'x', v, top, bottom, tolerance);
+        const sy = (v: number) => findEdge(pixels!, 'y', v, left, right, tolerance);
+        if (!handle) {
+          const xs = [sx(left), sx(right)],
+            ys = [sy(top), sy(bottom)];
+          const xi =
+            xs[0] !== undefined &&
+            (xs[1] === undefined || Math.abs(xs[0] - left) <= Math.abs(xs[1] - right))
+              ? 0
+              : 1;
+          const yi =
+            ys[0] !== undefined &&
+            (ys[1] === undefined || Math.abs(ys[0] - top) <= Math.abs(ys[1] - bottom))
+              ? 0
+              : 1;
+          if (xs[xi] !== undefined) {
+            const delta = xs[xi]! - (xi === 0 ? left : right);
+            if (left + delta >= 0 && right + delta <= m.width) {
+              left += delta;
+              right += delta;
+              guides.x = xs[xi];
+            }
+          }
+          if (ys[yi] !== undefined) {
+            const delta = ys[yi]! - (yi === 0 ? top : bottom);
+            if (top + delta >= 0 && bottom + delta <= m.height) {
+              top += delta;
+              bottom += delta;
+              guides.y = ys[yi];
+            }
+          }
+        } else {
+          if (handle.includes('w')) {
+            const value = sx(left);
+            if (value !== undefined && value < right) left = guides.x = value;
+          }
+          if (handle.includes('e')) {
+            const value = sx(right);
+            if (value !== undefined && value > left) right = guides.x = value;
+          }
+          if (handle.includes('n')) {
+            const value = sy(top);
+            if (value !== undefined && value < bottom) top = guides.y = value;
+          }
+          if (handle.includes('s')) {
+            const value = sy(bottom);
+            if (value !== undefined && value > top) bottom = guides.y = value;
+          }
+        }
+      }
       composition.crop = {
         x: Math.round(left),
         y: Math.round(top),
@@ -391,13 +531,18 @@ export function useEditor() {
         height: Math.round(bottom - top),
       };
       normalize();
+      showLoupe(e);
     };
     element.onpointerup = element.onpointercancel = () => {
       element.onpointermove = null;
+      hideLoupe();
+      guides.x = undefined;
+      guides.y = undefined;
     };
   }
   function trimPointer(event: PointerEvent, key: 'start' | 'end') {
-    if (!isVideo.value) return;
+    if (!isVideo.value || event.button !== 0) return;
+    stopPlayback();
     event.stopPropagation();
     event.preventDefault();
     const element = event.currentTarget as HTMLElement,
@@ -410,16 +555,34 @@ export function useEditor() {
           ? Math.min(value, composition.end - 0.01)
           : Math.max(value, composition.start + 0.01);
       normalize();
+      seek(composition[key]);
     };
     element.onpointerup = element.onpointercancel = () => {
       element.onpointermove = null;
-      seek(composition.start);
     };
   }
-  function timelineSeek(event: MouseEvent) {
-    if (!isVideo.value || (event.target as HTMLElement).classList.contains('trim-handle')) return;
-    const r = (event.currentTarget as HTMLElement).getBoundingClientRect();
-    seek(((event.clientX - r.left) / r.width) * media.value!.duration);
+  function timelineSeek(event: PointerEvent) {
+    if (
+      !isVideo.value ||
+      event.button !== 0 ||
+      (event.target as HTMLElement).closest('.trim-handle')
+    )
+      return;
+    event.preventDefault();
+    stopPlayback();
+    const element = event.currentTarget as HTMLElement;
+    const track = element
+      .closest('.timeline')!
+      .querySelector('.timeline-track')!
+      .getBoundingClientRect();
+    const update = (e: PointerEvent) =>
+      seek(clamp((e.clientX - track.left) / track.width, 0, 1) * media.value!.duration);
+    element.setPointerCapture(event.pointerId);
+    update(event);
+    element.onpointermove = update;
+    element.onpointerup = element.onpointercancel = () => {
+      element.onpointermove = null;
+    };
   }
   function drop(event: DragEvent) {
     event.preventDefault();
@@ -552,6 +715,11 @@ export function useEditor() {
       document.querySelector('dialog[open]')
     )
       return;
+    if (isVideo.value && ['ArrowLeft', 'ArrowRight'].includes(e.code)) {
+      e.preventDefault();
+      stopPlayback();
+      seek(currentTime.value + (e.code === 'ArrowLeft' ? -1 : 1) / media.value!.fps);
+    }
     if (e.code === 'Space') {
       e.preventDefault();
       play();
@@ -570,7 +738,12 @@ export function useEditor() {
     },
     { deep: true },
   );
-  watch(cropMode, () => nextTick(draw));
+  watch(cropMode, () => {
+    stopPlayback();
+    pixels = undefined;
+    hideLoupe();
+    void nextTick(draw);
+  });
   watch(
     () => settings.language,
     (language) => (document.documentElement.lang = language),
@@ -617,6 +790,13 @@ export function useEditor() {
     stopPlayback();
   });
   return {
+    magnifier,
+    loupe,
+    showLoupe,
+    hideLoupe,
+    guides,
+    corners,
+    changeCorner,
     api,
     settings,
     composition,

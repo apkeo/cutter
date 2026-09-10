@@ -4,6 +4,7 @@ await build({
     main: 'electron/main.ts',
     preload: 'electron/preload.ts',
     model: 'electron/model.ts',
+    crop: 'shared/crop.ts',
   },
   bundle: true,
   platform: 'node',

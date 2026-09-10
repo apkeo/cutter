@@ -12,9 +12,11 @@ const assert = require('node:assert/strict');
   const page = await app.firstWindow(); await page.waitForSelector('#empty-capture');
   const opened = app.waitForEvent('window'); await page.evaluate(()=>window.cutter.picker());
   const picker = await opened; await picker.waitForSelector('#selection');
+  const nativeBounds = await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows().find(w=>w.webContents.getURL().includes("picker")).getBounds());
   const init = await picker.evaluate(()=>window.cutter.pickerInit());
   const displays = await app.evaluate(({screen})=>screen.getAllDisplays());
   assert.equal(await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows().filter(w=>w.webContents.getURL().includes('picker')).length),1);
+  for(const d of displays) {assert.ok(nativeBounds.x <= d.bounds.x && nativeBounds.y <= d.bounds.y && nativeBounds.x + nativeBounds.width >= d.bounds.x + d.bounds.width && nativeBounds.y + nativeBounds.height >= d.bounds.y + d.bounds.height, 'Native overlay must cover every display');}
   const target = displays.find(d=>d.id!==init.display.id);
   assert.ok(target, 'This regression test needs two connected displays');
   await app.evaluate(({screen}, bounds)=>{global.testCursor={x:bounds.x+200,y:bounds.y+160};screen.getCursorScreenPoint=()=>global.testCursor;},init.display.bounds);
@@ -26,6 +28,12 @@ const assert = require('node:assert/strict');
    if((await picker.evaluate(()=>window.cutter.settings())).region?.displayId===target.id) break;
    await new Promise(resolve=>setTimeout(resolve,50));
   }
+  const firstRegion = (await picker.evaluate(()=>window.cutter.settings())).region;
+  await app.evaluate(()=>{global.testCursor.x += 120; global.testCursor.y += 90;});
+  await new Promise(resolve=>setTimeout(resolve,100));
+  const continued = (await picker.evaluate(()=>window.cutter.settings())).region;
+  assert.ok(continued.x !== firstRegion.x || continued.y !== firstRegion.y, 'Drag must keep moving after crossing the monitor boundary without releasing');
+  assert.deepEqual(await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows().find(w=>w.webContents.getURL().includes('picker')).getBounds()),nativeBounds,'Native bounds stay fixed throughout the drag');
   await picker.mouse.up();
   await new Promise(resolve=>setTimeout(resolve,100));
   assert.equal(await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows().filter(w=>w.webContents.getURL().includes('picker')).length),1);

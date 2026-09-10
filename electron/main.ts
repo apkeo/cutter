@@ -31,7 +31,13 @@ if (process.env.CUTTER_TEST_HOME) app.setPath('userData', process.env.CUTTER_TES
 protocol.registerSchemesAsPrivileged([
   {
     scheme: 'cutter-media',
-    privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true },
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      stream: true,
+      corsEnabled: true,
+    },
   },
 ]);
 type PickerWindow = BrowserWindow & { display: Display };
@@ -294,9 +300,21 @@ async function openPicker() {
     screen.getAllDisplays().find((d) => d.id === settings.region?.displayId) ||
     screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
   {
+    const displays = screen.getAllDisplays();
+    const bounds = {
+      x: Math.min(...displays.map((d) => d.bounds.x)),
+      y: Math.min(...displays.map((d) => d.bounds.y)),
+      width:
+        Math.max(...displays.map((d) => d.bounds.x + d.bounds.width)) -
+        Math.min(...displays.map((d) => d.bounds.x)),
+      height:
+        Math.max(...displays.map((d) => d.bounds.y + d.bounds.height)) -
+        Math.min(...displays.map((d) => d.bounds.y)),
+    };
     const w = secureWindow(
       {
-        ...display.bounds,
+        ...bounds,
+        enableLargerThanScreen: true,
         transparent: true,
         backgroundColor: '#00000000',
         alwaysOnTop: true,
@@ -306,6 +324,7 @@ async function openPicker() {
       },
       'picker.html',
     ) as PickerWindow;
+    w.setBounds(bounds);
     w.display = display;
     w.setAlwaysOnTop(true, 'screen-saver');
     pickers.push(w);
@@ -380,7 +399,7 @@ async function startCapture(
     });
     return;
   }
-  const physical = screen.dipToScreenRect(picker, {
+  const physical = screen.dipToScreenRect(null, {
     x: b.x + r.x,
     y: b.y + r.y,
     width: r.width,
@@ -555,11 +574,20 @@ app
       const stored = JSON.parse(await fs.readFile(settingsPath(), 'utf8'));
       settings = { ...settings, ...stored, editor: { ...settings.editor, ...stored.editor } };
     } catch {}
-    protocol.handle('cutter-media', (request) => {
+    protocol.handle('cutter-media', async (request) => {
       const p = assets.get(new URL(request.url).pathname.slice(1));
-      return p
-        ? net.fetch(pathToFileURL(p).href, { headers: request.headers })
-        : new Response('Not found', { status: 404 });
+      if (!p) return new Response('Not found', { status: 404 });
+      const response = await net.fetch(pathToFileURL(p).href, { headers: request.headers });
+      const headers = new Headers(response.headers);
+      headers.set(
+        'Access-Control-Allow-Origin',
+        process.env.CUTTER_DEV_URL ? new URL(process.env.CUTTER_DEV_URL).origin : 'null',
+      );
+      return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers,
+      });
     });
     main = secureWindow(
       { width: 1440, height: 960, minWidth: 1080, minHeight: 740, show: false },
@@ -638,7 +666,7 @@ app
         const display = screen.getDisplayNearestPoint(cursor);
         if (display.id !== picker.display.id) {
           picker.display = display;
-          picker.setBounds(display.bounds);
+          // Keep the native window stationary so pointer capture survives display changes.
         }
         const width = Math.min(Math.max(2, rect.width), display.bounds.width);
         const height = Math.min(Math.max(2, rect.height), display.bounds.height);
@@ -655,11 +683,12 @@ app
           height,
         };
         settings.region = { ...moved, displayId: display.id };
-        picker.webContents.send('picker-region', moved);
+        picker.webContents.send('picker-region', { rect: moved, bounds: display.bounds });
       }, 16);
     });
     handle('picker:init', (e) => ({
       settings,
+      viewport: pickers.find((w) => w.webContents === e.sender)?.getBounds(),
       display: pickers.find((w) => w.webContents === e.sender)?.display,
     }));
     handle('picker:cancel', () => {

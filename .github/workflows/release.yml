@@ -46,6 +46,8 @@ jobs:
         run: mise exec -- npx electron-builder --${{ matrix.platform }} --${{ matrix.arch }} --publish never
       - name: Verify packaged app, import and exports
         run: mise exec -- npm run test:release
+      - name: Verify precision editing and timeline
+        run: mise exec -- node tests/editor12.cjs --packaged
       - name: Upload installers
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -60,7 +62,9 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: diagnostics-${{ matrix.platform }}-${{ matrix.arch }}
-          path: .local-test/release-profile/*.png
+          path: |
+            .local-test/release-profile/*.png
+            .local-test/editor12/*.png
           if-no-files-found: ignore
 
   publish:

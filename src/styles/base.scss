@@ -593,6 +593,7 @@ h1 {
   flex: 1;
 }
 #source-badge {
+  margin-left: auto;
   font-size: 9px;
   white-space: nowrap;
 }
@@ -632,6 +633,8 @@ input[type='range'] {
   margin: 20px 0 10px;
 }
 .timeline-track {
+  touch-action: none;
+  cursor: crosshair;
   height: 38px;
   background: repeating-linear-gradient(
     90deg,
@@ -1186,4 +1189,100 @@ progress {
   .stage-toolbar {
     padding: 0 18px;
   }
+}
+#pixel-loupe {
+  position: fixed;
+  z-index: 10000;
+  pointer-events: none;
+  width: 232px;
+  padding: 13px;
+  background: #111910f5;
+  border: 1px solid #91ad77;
+  border-radius: 14px;
+  box-shadow: 0 14px 48px #0009;
+  canvas {
+    display: block;
+    width: 204px;
+    height: 204px;
+    image-rendering: pixelated;
+    border-radius: 4px;
+  }
+  > div {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 9px;
+    color: #c0f28c;
+    font: 11px monospace;
+  }
+}
+.snap-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--muted);
+  input {
+    width: auto;
+    accent-color: var(--accent);
+  }
+}
+.snap-guide {
+  position: absolute;
+  background: #ffb574;
+  z-index: 5;
+  pointer-events: none;
+  &.vertical {
+    top: 0;
+    bottom: 0;
+    width: 1px;
+  }
+  &.horizontal {
+    left: 0;
+    right: 0;
+    height: 1px;
+  }
+}
+.corner-grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px 36px;
+  margin: 14px 0 24px;
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 9px;
+    color: var(--muted);
+  }
+  input {
+    width: 100%;
+  }
+  .corner-2 {
+    grid-column: 2;
+    grid-row: 2;
+  }
+  .corner-3 {
+    grid-column: 1;
+    grid-row: 2;
+  }
+}
+.corner-link {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  padding: 7px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  &.active {
+    background: #33452a;
+    color: var(--accent);
+    border-color: #637e4c;
+  }
+}
+.timeline-ruler {
+  touch-action: none;
+  cursor: crosshair;
 }
