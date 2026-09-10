@@ -452,6 +452,10 @@ export function useEditor() {
       hex.value = composition.background;
     }
   }
+  function cursorSeek(value: number) {
+    stopPlayback();
+    seek(value);
+  }
   function seek(value: number) {
     if (source.value instanceof HTMLVideoElement) {
       source.value.currentTime = clamp(value, 0, media.value!.duration);
@@ -832,6 +836,7 @@ export function useEditor() {
     stopPlayback();
   });
   return {
+    cursorSeek,
     cursor,
     magnifier,
     loupe,

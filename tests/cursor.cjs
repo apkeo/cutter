@@ -15,11 +15,13 @@ const {execFileSync}=require('node:child_process');
   const page=await app.firstWindow();await page.waitForSelector('#empty-capture');const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const media=await page.evaluate(file=>window.cutter.importFile(file),source);assert.equal(media.cursor.samples.length,61);
   await app.evaluate(({BrowserWindow},m)=>BrowserWindow.getAllWindows()[0].webContents.send('media',m),media);await page.waitForSelector('#cursor-timeline');await page.locator('#fit-media').click();
+  const videoTrack=await page.locator('#timeline-track').boundingBox();for(const row of await page.locator('.cursor-events').all()){const r=await row.boundingBox();assert.ok(Math.abs(r.x-videoTrack.x)<2,'Cursor rows align with video time');}
   await page.locator('#cursor-smooth').check();await page.locator('.cursor-click.left').click();assert.equal(await page.locator('#cursor-event-end').inputValue(),'1.2');
   await page.locator('#cursor-event-end').fill('1.3');await page.locator('#cursor-event-end').blur();await page.locator('#cursor-event-x').fill('220');await page.locator('#cursor-event-x').blur();
   await page.screenshot({path:path.join(profile,'timeline.png')});
   await page.locator('#export').click();await page.locator('#render').click();await page.locator('#export-result').waitFor({state:'visible',timeout:90000});const output=await page.locator('#export-filename').textContent();
   const raw=execFileSync(require('ffmpeg-static'),['-v','error','-ss','0.4','-i',output,'-frames:v','1','-f','rawvideo','-pix_fmt','rgb24','pipe:1'],{windowsHide:true,maxBuffer:4e6});assert.ok(raw.some(v=>v>120),'Export contains rendered cursor pixels');
+  const greenAt=(t)=>{const a=execFileSync(require('ffmpeg-static'),['-v','error','-ss',t,'-i',output,'-frames:v','1','-f','rawvideo','-pix_fmt','rgb24','pipe:1'],{windowsHide:true,maxBuffer:4e6});let n=0;for(let i=0;i<a.length;i+=3)if(a[i+1]>180&&a[i]<220&&a[i+2]<190)n++;return n;};assert.ok(greenAt('0.95')>greenAt('1.32')+2,'Button highlight lasts until mouse-up and then clears');
   await page.locator('#export-dialog .close-dialog').click();await page.locator('#cursor-eye').click();await page.locator('#clicks-eye').click();
   await page.locator('#export').click();await page.locator('#render').click();await page.locator('#export-result').waitFor({state:'visible',timeout:90000});const hidden=await page.locator('#export-filename').textContent();
   const clean=execFileSync(require('ffmpeg-static'),['-v','error','-ss','0.4','-i',hidden,'-frames:v','1','-f','rawvideo','-pix_fmt','rgb24','pipe:1'],{windowsHide:true,maxBuffer:4e6});const count=(a)=>a.reduce((s,v)=>s+(v>120?1:0),0);assert.ok(count(raw)>count(clean)+100,'Hidden cursor layers disappear from export');

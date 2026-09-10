@@ -14,13 +14,13 @@
 
 ## Download
 
-**[Get Cutter 1.2 →](https://github.com/apkeo/cutter/releases/latest)**
+**[Get Cutter 1.3 →](https://github.com/apkeo/cutter/releases/latest)**
 
 | Platform | Installer | Portable |
 | --- | --- | --- |
-| **Windows 10/11** · x64 | [Download .exe](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.2.0-win-x64.exe) | [Download .zip](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.2.0-win-x64.zip) |
-| **macOS 13+** · Apple Silicon | [Download .dmg](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.2.0-mac-arm64.dmg) | [Download .zip](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.2.0-mac-arm64.zip) |
-| **macOS 13+** · Intel | [Download .dmg](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.2.0-mac-x64.dmg) | [Download .zip](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.2.0-mac-x64.zip) |
+| **Windows 10/11** · x64 | [Download .exe](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.3.0-win-x64.exe) | [Download .zip](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.3.0-win-x64.zip) |
+| **macOS 13+** · Apple Silicon | [Download .dmg](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.3.0-mac-arm64.dmg) | [Download .zip](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.3.0-mac-arm64.zip) |
+| **macOS 13+** · Intel | [Download .dmg](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.3.0-mac-x64.dmg) | [Download .zip](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.3.0-mac-x64.zip) |
 
 No account. No subscription. No upload. FFmpeg is included; nothing else to install.
 
@@ -110,7 +110,7 @@ TypeScript 6.0.3 is pinned for compatibility with current `vue-tsc`. See [develo
 
 ## Releases
 
-GitHub Actions builds native Windows x64, macOS ARM64 and macOS Intel packages. It verifies the packaged app and media exports on each runner. Tags such as `v1.2.0` publish a release **only after all three platform jobs pass**, with downloadable installers, portable archives and SHA-256 checksums.
+GitHub Actions builds native Windows x64, macOS ARM64 and macOS Intel packages. It verifies the packaged app and media exports on each runner. Tags such as `v1.3.0` publish a release **only after all three platform jobs pass**, with downloadable installers, portable archives and SHA-256 checksums.
 
 ## Contributing
 
@@ -131,3 +131,13 @@ Crop with a 12× pixel magnifier, source coordinates and edge guides. Cutter ana
 Set each corner radius independently. The center link preserves proportions: changing 8 px to 16 px doubles linked 16 px corners to 32 px. When the edited corner starts at zero, Cutter applies an additive change until a ratio exists.
 
 Click or drag anywhere on the lower timeline or ruler to scrub. Drag the trim handles to edit the export range; releasing a handle keeps the preview at that boundary. Left/right arrow keys step through video frames.
+
+### Recorded cursor layers
+
+Enable **Hide system cursor** in the picker before recording for a clean, replaceable cursor. Cutter always records pointer positions, arrow/text/hand states, and left/right/middle button transitions while recording. The original video and a matching `.cutter.json` file are saved together; keep both files together when moving or importing a recording.
+
+Two aligned timeline rows let you show/hide the pointer and click effects independently. Select a position or click to edit its time, coordinates, cursor shape, button or hold duration. Clicks show an expanding ring; the mouse badge highlights each button for its full hold duration. **Smooth** applies a cubic interpolated path with tremor reduction and exact click anchors. All these effects appear in exported videos too, and original telemetry is preserved separately from edits.
+
+Recordings with the real cursor enabled retain that cursor in their pixels; the editor cannot remove a cursor already baked into a video. Imported videos without a sidecar have no recorded cursor data. Unrecognized custom cursor artwork falls back to an arrow and can be corrected on the timeline.
+
+On macOS, allow **Screen Recording** and **Input Monitoring** for Cutter in System Settings → Privacy & Security. Cursor tracking observes mouse events only, starts with recording preparation, and stops when recording stops. Screen recording uses ScreenCaptureKit with explicit system-cursor visibility control.

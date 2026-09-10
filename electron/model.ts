@@ -67,7 +67,22 @@ export function exportArgs(
   const args = ['-hide_banner', '-y', '-threads', '2'];
   if (!isImage) args.push('-ss', String(c.start), '-t', String(c.end - c.start));
   if (isImage) args.push('-loop', '1');
-  args.push('-i', media.path, '-loop', '1', '-i', background, '-loop', '1', '-i', mask);
+  args.push(
+    '-i',
+    media.path,
+    '-loop',
+    '1',
+    '-framerate',
+    String(c.fps),
+    '-i',
+    background,
+    '-loop',
+    '1',
+    '-framerate',
+    String(c.fps),
+    '-i',
+    mask,
+  );
   if (cursorOverlay) args.push('-i', cursorOverlay);
   let filter = `[0:v]crop=${c.crop.width}:${c.crop.height}:${c.crop.x}:${c.crop.y},scale=${c.drawWidth}:${c.drawHeight}:flags=lanczos,setsar=1,setpts=PTS-STARTPTS,format=rgba[clip];[2:v]format=gray[mask];[clip][mask]alphamerge=shortest=1[rounded];[1:v]format=rgba[bg];[bg][rounded]overlay=(W-w)/2:(H-h)/2:shortest=1:format=rgb,setsar=1`;
   if (cursorOverlay) filter += '[base];[base][3:v]overlay=0:0:shortest=1:format=rgb';

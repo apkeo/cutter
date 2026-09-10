@@ -6,7 +6,8 @@ func emit(_ value: [String: Any]) {
 }
 if CommandLine.arguments.contains("--self-test") { print("cursor-helper-ok"); exit(0) }
 _ = NSApplication.shared
-var buttons = 0
+var buttons = (CGEventSource.buttonState(.combinedSessionState, button: .left) ? 1 : 0) | (CGEventSource.buttonState(.combinedSessionState, button: .right) ? 2 : 0) | (CGEventSource.buttonState(.combinedSessionState, button: .center) ? 4 : 0)
+var installedTap: CFMachPort?
 let textImage = NSCursor.iBeam.image.tiffRepresentation
 let handImage = NSCursor.pointingHand.image.tiffRepresentation
 func sample(_ kind: String, _ event: CGEvent? = nil) {
@@ -18,6 +19,7 @@ func sample(_ kind: String, _ event: CGEvent? = nil) {
 let types: [CGEventType] = [.leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp, .otherMouseDown, .otherMouseUp, .scrollWheel]
 let mask = types.reduce(CGEventMask(0)) { $0 | (1 << $1.rawValue) }
 guard let tap = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap, options: .listenOnly, eventsOfInterest: mask, callback: { _, type, event, _ in
+  if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput { if let tap = installedTap { CGEvent.tapEnable(tap: tap, enable: true) }; return Unmanaged.passUnretained(event) }
   let bit = type == .leftMouseDown || type == .leftMouseUp ? 1 : type == .rightMouseDown || type == .rightMouseUp ? 2 : 4
   if type == .scrollWheel { sample("wheel", event) }
   else if type == .leftMouseDown || type == .rightMouseDown || type == .otherMouseDown { buttons |= bit; sample("down", event) }
@@ -27,6 +29,7 @@ guard let tap = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEve
   emit(["error": "Allow Cutter in System Settings → Privacy & Security → Input Monitoring, then restart Cutter."])
   exit(1)
 }
+installedTap = tap
 CFRunLoopAddSource(CFRunLoopGetMain(), CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0), .commonModes)
 CGEvent.tapEnable(tap: tap, enable: true)
 emit(["ready": true])

@@ -5,6 +5,7 @@ import { sampleAt, type CursorTrack } from '../../shared/cursor';
 const props = defineProps<{
   track: CursorTrack;
   duration: number;
+  currentTime: number;
   width: number;
   height: number;
   language: string;
@@ -126,6 +127,7 @@ function remove() {
           "
       /></label>
       <div class="cursor-events movement-events" @click="pick">
+        <div class="cursor-playhead" :style="{ left: (currentTime / duration) * 100 + '%' }" />
         <i
           v-for="(p, i) in points"
           :key="i"
@@ -145,6 +147,7 @@ function remove() {
       </button>
       <span>{{ text('Mouse clicks', 'Kliknięcia myszy') }} · {{ track.clicks.length }}</span>
       <div class="cursor-events">
+        <div class="cursor-playhead" :style="{ left: (currentTime / duration) * 100 + '%' }" />
         <button
           v-for="(click, i) in track.clicks"
           :key="click.id"
@@ -234,10 +237,11 @@ function remove() {
   overflow: auto;
 }
 .cursor-layer {
-  display: flex;
+  display: grid;
+  grid-template-columns: 22px 1fr auto auto;
   align-items: center;
-  gap: 8px;
-  height: 33px;
+  gap: 6px 8px;
+  padding: 3px 0;
   font-size: 10px;
   > span {
     width: 125px;
@@ -265,13 +269,23 @@ function remove() {
 }
 .cursor-events {
   position: relative;
-  flex: 1;
+  grid-column: 1 / -1;
+  width: 100%;
   height: 24px;
   background: #283521;
   border-radius: 4px;
   min-width: 80px;
   overflow: hidden;
   cursor: crosshair;
+}
+.cursor-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: white;
+  z-index: 3;
+  pointer-events: none;
 }
 .movement-events i {
   position: absolute;

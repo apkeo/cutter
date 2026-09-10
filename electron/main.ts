@@ -777,16 +777,16 @@ app
     handle('media:import', (_, file: string) => inspect(file));
     handle('cursor:save', (_, id: string, track: CursorTrack) => {
       const saveTrack = async () => {
-      const media = mediaStore.get(id);
-      if (!media?.cursor) throw new Error('This file has no cursor recording.');
-      const edited = validateTrack(track);
-      const file = media.path + '.cutter.json';
-      const stored = JSON.parse(await fs.readFile(file, 'utf8'));
-      await fs.writeFile(file + '.tmp', JSON.stringify({ ...stored, edited }));
-      await fs.rename(file + '.tmp', file);
-      media.cursor = edited;
+        const media = mediaStore.get(id);
+        if (!media?.cursor) throw new Error('This file has no cursor recording.');
+        const edited = validateTrack(track);
+        const file = media.path + '.cutter.json';
+        const stored = JSON.parse(await fs.readFile(file, 'utf8'));
+        await fs.writeFile(file + '.tmp', JSON.stringify({ ...stored, edited }));
+        await fs.rename(file + '.tmp', file);
+        media.cursor = edited;
       };
-      cursorSaveQueue = cursorSaveQueue.catch(()=>{}).then(saveTrack);
+      cursorSaveQueue = cursorSaveQueue.catch(() => {}).then(saveTrack);
       return cursorSaveQueue;
     });
     handle('picker:open', openPicker);

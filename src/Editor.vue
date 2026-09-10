@@ -5,7 +5,7 @@ import { useEditor, time } from './useEditor';
 
 const {
   cursor,
-  seek,
+  cursorSeek,
   magnifier,
   loupe,
   showLoupe,
@@ -303,10 +303,11 @@ const handles = ['n', 's', 'e', 'w', 'nw', 'ne', 'sw', 'se'];
             v-if="cursor && media"
             v-model:track="cursor"
             :duration="media.duration"
+            :current-time="currentTime"
             :width="media.width"
             :height="media.height"
             :language="settings.language"
-            @seek="seek"
+            @seek="cursorSeek"
           />
         </section>
         <aside class="inspector">
@@ -598,7 +599,7 @@ const handles = ['n', 's', 'e', 'w', 'nw', 'ne', 'sw', 'se'];
           ><span id="status">{{
             loading ? text('Preparing media…', 'Przygotowywanie mediów…') : status || t('ready')
           }}</span></span
-        ><span>CUTTER <span class="muted">/</span> 1.2</span>
+        ><span>CUTTER <span class="muted">/</span> 1.3</span>
       </footer>
     </main>
   </div>
