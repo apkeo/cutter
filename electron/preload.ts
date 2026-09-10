@@ -13,6 +13,7 @@ const api: CutterAPI = {
   importFile: invoke('media:import'),
   filePath: (file) => webUtils.getPathForFile(file),
   picker: invoke('picker:open'),
+  movePicker: invoke('picker:move'),
   pickerInit: invoke('picker:init'),
   capture: invoke('capture:start'),
   stop: invoke('capture:stop'),
@@ -26,7 +27,15 @@ const api: CutterAPI = {
   fileAction: invoke('file:action'),
   window: invoke('window:action'),
   on: <K extends keyof Events>(channel: K, callback: (data: Events[K]) => void) => {
-    const allowed = ['media', 'status', 'export-progress', 'recording', 'error', 'capture-stop'];
+    const allowed = [
+      'media',
+      'status',
+      'export-progress',
+      'recording',
+      'error',
+      'capture-stop',
+      'picker-region',
+    ];
     if (!allowed.includes(channel)) return () => {};
     const handler = (_event: Electron.IpcRendererEvent, data: Events[K]) => callback(data);
     ipcRenderer.on(channel, handler);

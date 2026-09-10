@@ -46,6 +46,7 @@ function pointer(e: PointerEvent) {
     old = { ...rect },
     element = e.currentTarget as HTMLElement;
   element.setPointerCapture(e.pointerId);
+  if (selection && !handle) void api.movePicker({ ...rect });
   if (!selection) Object.assign(rect, { x: start.x, y: start.y, width: 2, height: 2 });
   element.onpointermove = (ev) => {
     const dx = ev.clientX - start.x,
@@ -57,12 +58,7 @@ function pointer(e: PointerEvent) {
         width: Math.abs(dx),
         height: Math.abs(dy),
       });
-    else if (!handle)
-      Object.assign(rect, {
-        ...old,
-        x: clamp(old.x + dx, 0, innerWidth - old.width),
-        y: clamp(old.y + dy, 0, innerHeight - old.height),
-      });
+    else if (!handle) return;
     else {
       let x = old.x,
         y = old.y,
@@ -78,6 +74,7 @@ function pointer(e: PointerEvent) {
   };
   element.onpointerup = element.onpointercancel = () => {
     element.onpointermove = null;
+    if (selection && !handle) void api.movePicker(null);
   };
   normalize();
 }
@@ -96,6 +93,7 @@ function keyboard(e: KeyboardEvent) {
   if (e.key === 'Enter') void capture('screenshot');
 }
 let observer: ResizeObserver;
+const unsubscribe = api.on('picker-region', (moved) => Object.assign(rect, moved));
 onMounted(async () => {
   document.body.classList.add('picker-body');
   document.addEventListener('keydown', keyboard);
@@ -123,6 +121,7 @@ onUnmounted(() => {
   document.body.classList.remove('picker-body');
   document.removeEventListener('keydown', keyboard);
   observer?.disconnect();
+  unsubscribe();
 });
 </script>
 

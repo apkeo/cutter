@@ -14,13 +14,13 @@
 
 ## Download
 
-**[Get Cutter 1.0 →](https://github.com/apkeo/cutter/releases/latest)**
+**[Get Cutter 1.1 →](https://github.com/apkeo/cutter/releases/latest)**
 
 | Platform | Installer | Portable |
 | --- | --- | --- |
-| **Windows 10/11** · x64 | [Download .exe](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.0.0-win-x64.exe) | [Download .zip](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.0.0-win-x64.zip) |
-| **macOS 13+** · Apple Silicon | [Download .dmg](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.0.0-mac-arm64.dmg) | [Download .zip](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.0.0-mac-arm64.zip) |
-| **macOS 13+** · Intel | [Download .dmg](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.0.0-mac-x64.dmg) | [Download .zip](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.0.0-mac-x64.zip) |
+| **Windows 10/11** · x64 | [Download .exe](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.1.0-win-x64.exe) | [Download .zip](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.1.0-win-x64.zip) |
+| **macOS 13+** · Apple Silicon | [Download .dmg](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.1.0-mac-arm64.dmg) | [Download .zip](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.1.0-mac-arm64.zip) |
+| **macOS 13+** · Intel | [Download .dmg](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.1.0-mac-x64.dmg) | [Download .zip](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.1.0-mac-x64.zip) |
 
 No account. No subscription. No upload. FFmpeg is included; nothing else to install.
 
@@ -54,7 +54,7 @@ Render an image or video, then **copy the file**, **copy its path**, or **reveal
 | --- | --- | --- |
 | Custom global shortcut | Visual crop with eight handles | PNG, JPEG, WebP |
 | Resizable screen region | Canvas width & height | MP4, MOV, WebM, GIF |
-| Screenshot or recording | Padding & pixel corner radius | Original audio retained on video import |
+| Screenshot or recording | Padding & pixel corner radius | Keep or mute imported audio |
 | Per-monitor selection | Hex background colors | Progress & cancellation |
 | Automatic original-file saving | Trim & source-limited FPS | File and path clipboard actions |
 | Remembered region | English & Polish UI | Local processing throughout |
@@ -110,7 +110,7 @@ TypeScript 6.0.3 is pinned for compatibility with current `vue-tsc`. See [develo
 
 ## Releases
 
-GitHub Actions builds native Windows x64, macOS ARM64 and macOS Intel packages. It verifies the packaged app and media exports on each runner. Tags such as `v1.0.0` publish a release **only after all three platform jobs pass**, with downloadable installers, portable archives and SHA-256 checksums.
+GitHub Actions builds native Windows x64, macOS ARM64 and macOS Intel packages. It verifies the packaged app and media exports on each runner. Tags such as `v1.1.0` publish a release **only after all three platform jobs pass**, with downloadable installers, portable archives and SHA-256 checksums.
 
 ## Contributing
 
@@ -121,3 +121,5 @@ Found a rough edge? [Open an issue](https://github.com/apkeo/cutter/issues). Inc
 **GPL-3.0-or-later** — free to use, study, modify and redistribute under the license terms. © 2026 Apkeo and contributors. See [LICENSE](LICENSE) and [third-party notices](THIRD_PARTY_NOTICES.md).
 
 <p align="center">Made with care by <a href="https://github.com/apkeo">Apkeo</a>.</p>
+
+To verify picker movement on a workstation with two connected displays, run `mise exec -- node tests/picker.cjs` after building.

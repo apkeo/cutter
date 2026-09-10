@@ -40,6 +40,7 @@ export function composition(
     media.duration,
   );
   return {
+    muted: input.muted === true,
     width,
     height,
     crop,
@@ -93,6 +94,11 @@ export function exportArgs(
     );
   if (format === 'webm')
     args.push('-map', '0:a?', '-c:v', 'libvpx-vp9', '-crf', '28', '-b:v', '0', '-c:a', 'libopus');
+  if (c.muted) {
+    const audioMap = args.indexOf('0:a?');
+    if (audioMap !== -1) args.splice(audioMap - 1, 2);
+    args.push('-an');
+  }
   if (format === 'jpg') args.push('-q:v', '2');
   if (format === 'webp') args.push('-c:v', 'libwebp', '-quality', '95');
   args.push('-progress', 'pipe:1', output);

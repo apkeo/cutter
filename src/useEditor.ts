@@ -13,6 +13,7 @@ const defaults: Composition = {
   padding: 64,
   radius: 8,
   background: '#d7e3d1',
+  muted: false,
   fps: 30,
   crop: { x: 0, y: 0, width: 1920, height: 1080 },
   start: 0,
@@ -258,6 +259,7 @@ export function useEditor() {
     if (element instanceof HTMLVideoElement) {
       element.preload = 'auto';
       element.playsInline = true;
+      element.muted = composition.muted;
     }
     await new Promise<void>((resolve, reject) => {
       element.addEventListener(m.kind === 'video' ? 'loadeddata' : 'load', () => resolve(), {
@@ -562,6 +564,7 @@ export function useEditor() {
   watch(
     composition,
     () => {
+      if (source.value instanceof HTMLVideoElement) source.value.muted = composition.muted;
       draw();
       persist();
     },

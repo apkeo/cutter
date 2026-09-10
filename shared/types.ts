@@ -10,6 +10,7 @@ export interface Composition {
   padding: number;
   radius: number;
   background: string;
+  muted: boolean;
   fps: number;
   crop: Rect;
   start: number;
@@ -35,6 +36,7 @@ export interface Media {
   fps: number;
   duration: number;
   size: number;
+  hasAudio: boolean;
   url: string;
 }
 export interface RenderComposition extends Composition {
@@ -59,6 +61,7 @@ export interface Events {
   recording: boolean;
   error: string;
   'capture-stop': undefined;
+  'picker-region': Rect;
 }
 export interface CaptureSession {
   rect: Rect;
@@ -76,6 +79,7 @@ export interface CutterAPI {
   importFile(file: string): Promise<Media>;
   filePath(file: File): string;
   picker(): Promise<void>;
+  movePicker(rect: Rect | null): Promise<void>;
   pickerInit(): Promise<{
     settings: Settings;
     display: { id: number; bounds: Rect; scaleFactor: number };

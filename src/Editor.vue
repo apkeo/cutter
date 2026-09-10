@@ -512,6 +512,24 @@ const handles = ['n', 's', 'e', 'w', 'nw', 'ne', 'sw', 'se'];
               }}
             </p>
           </section>
+          <section v-if="isVideo" class="control-section">
+            <label class="checkbox-row">
+              <input
+                id="mute-audio"
+                type="checkbox"
+                v-model="composition.muted"
+                :disabled="!media?.hasAudio"
+              />
+              {{ text('Mute audio', 'Wycisz audio') }}
+            </label>
+            <p class="field-hint">
+              {{
+                media?.hasAudio
+                  ? text('Applies to preview and export.', 'Dotyczy podglądu i eksportu.')
+                  : text('This clip has no audio track.', 'Ten klip nie ma ścieżki audio.')
+              }}
+            </p>
+          </section>
           <div class="inspector-note">
             <span><Icon name="sparkles" /></span>
             <p v-html="t('note')" />
@@ -524,7 +542,7 @@ const handles = ['n', 's', 'e', 'w', 'nw', 'ne', 'sw', 'se'];
           ><span id="status">{{
             loading ? text('Preparing media…', 'Przygotowywanie mediów…') : status || t('ready')
           }}</span></span
-        ><span>CUTTER <span class="muted">/</span> 1.0</span>
+        ><span>CUTTER <span class="muted">/</span> 1.1</span>
       </footer>
     </main>
   </div>

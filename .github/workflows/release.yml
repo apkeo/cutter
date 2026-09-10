@@ -84,4 +84,4 @@ jobs:
           cd downloads
           sha256sum Cutter-* > SHA256SUMS.txt
           cd ..
-          gh release create "$RELEASE_TAG" downloads/* --verify-tag --title "Cutter 1.0" --notes-file docs/releases/v1.0.0.md --latest
+          gh release create "$RELEASE_TAG" downloads/* --verify-tag --title "Cutter ${RELEASE_TAG#v}" --notes-file "docs/releases/$RELEASE_TAG.md" --latest

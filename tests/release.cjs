@@ -17,6 +17,7 @@ async function main() {
   page.on('pageerror', e => errors.push(e.message));
   try {
     await page.waitForSelector('#empty-capture');
+    await page.evaluate(() => { const create = document.createElement.bind(document); document.createElement = (...args) => { const element = create(...args); if(args[0] === 'video') window.testVideo = element; return element; }; });
     const media = await page.evaluate(file => window.cutter.importFile(file), source);
     await app.evaluate(({ BrowserWindow }, media) => BrowserWindow.getAllWindows()[0].webContents.send('media', media), media);
     await page.waitForFunction(() => document.getElementById('project-name').textContent === 'Focus session');
@@ -28,6 +29,24 @@ async function main() {
       const output = await page.locator('#export-filename').textContent();assert.ok((await fs.stat(output)).size > 1000);
       await page.locator('#export-dialog .close-dialog').click();
     }
+    assert.equal(media.hasAudio, true);
+    assert.equal(await page.evaluate(()=>window.testVideo.muted), false);
+    await page.locator('#mute-audio').check();
+    await page.waitForFunction(()=>window.testVideo.muted === true);
+    for (const format of ['mp4', 'mov', 'webm']) {
+      await page.locator('#export').click(); await page.locator('#export-format').selectOption(format); await page.locator('#render').click();
+      await page.locator('#export-result').waitFor({ state: 'visible', timeout: 90000 });
+      const output = await page.locator('#export-filename').textContent();
+      const probe = JSON.parse(execFileSync(require('ffprobe-static').path, ['-v','error','-show_streams','-of','json',output], {windowsHide:true}));
+      assert.ok(probe.streams.some(s => s.codec_type === 'video'));
+      assert.ok(!probe.streams.some(s => s.codec_type === 'audio'), format + ' must contain no audio');
+      await page.locator('#export-dialog .close-dialog').click();
+    }
+    let stored;
+    for(let i=0;i<40;i++){stored=JSON.parse(await fs.readFile(path.join(profile,'settings.json'),'utf8'));if(stored.editor?.muted===true)break;await new Promise(r=>setTimeout(r,50));}
+    assert.equal(stored.editor.muted,true, 'Mute preference is persisted');
+    await page.locator('#mute-audio').uncheck();
+    await page.waitForFunction(()=>window.testVideo.muted === false);
     await page.screenshot({ path: path.join(profile, 'verified.png') });
     assert.deepEqual(errors, []);
     console.log(`PASS packaged ${process.platform}/${process.arch}: bundled media tools, video import, MP4/MOV/WebM/GIF exports.`);

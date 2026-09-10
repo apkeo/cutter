@@ -182,6 +182,7 @@ async function inspect(file: string): Promise<Media> {
     fps: n / d || 30,
     duration: kind === 'image' ? 0 : Number(info.format.duration || video.duration || 0),
     size: stat.size,
+    hasAudio: info.streams.some((stream) => stream.codec_type === 'audio'),
   };
   if (kind === 'video' && !media.duration) {
     const packets: { packets: { pts_time?: string; duration_time?: string }[] } = JSON.parse(
@@ -263,7 +264,13 @@ async function inspect(file: string): Promise<Media> {
   await save();
   return media;
 }
+let pickerMove: ReturnType<typeof setInterval> | undefined;
+function stopPickerMove() {
+  if (pickerMove) clearInterval(pickerMove);
+  pickerMove = undefined;
+}
 function closePickers() {
+  stopPickerMove();
   for (const w of pickers) if (!w.isDestroyed()) w.close();
   pickers = [];
   picking = false;
@@ -283,7 +290,10 @@ async function openPicker() {
   }
   picking = true;
   main.hide();
-  for (const display of screen.getAllDisplays()) {
+  const display =
+    screen.getAllDisplays().find((d) => d.id === settings.region?.displayId) ||
+    screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+  {
     const w = secureWindow(
       {
         ...display.bounds,
@@ -534,6 +544,7 @@ app
         padding: 64,
         radius: 8,
         background: '#d7e3d1',
+        muted: false,
         fps: 30,
         crop: { x: 0, y: 0, width: 1920, height: 1080 },
         start: 0,
@@ -604,6 +615,49 @@ app
     });
     handle('media:import', (_, file: string) => inspect(file));
     handle('picker:open', openPicker);
+    handle('picker:move', (e, rect: import('../shared/types').Rect | null) => {
+      const picker = pickers.find((w) => w.webContents === e.sender);
+      if (!picker) return;
+      stopPickerMove();
+      if (!rect) {
+        void save();
+        return;
+      }
+      if (![rect.x, rect.y, rect.width, rect.height].every(Number.isFinite)) return;
+      const initial = screen.getCursorScreenPoint();
+      const anchor = {
+        x: initial.x - picker.display.bounds.x - rect.x,
+        y: initial.y - picker.display.bounds.y - rect.y,
+      };
+      pickerMove = setInterval(() => {
+        if (picker.isDestroyed()) {
+          stopPickerMove();
+          return;
+        }
+        const cursor = screen.getCursorScreenPoint();
+        const display = screen.getDisplayNearestPoint(cursor);
+        if (display.id !== picker.display.id) {
+          picker.display = display;
+          picker.setBounds(display.bounds);
+        }
+        const width = Math.min(Math.max(2, rect.width), display.bounds.width);
+        const height = Math.min(Math.max(2, rect.height), display.bounds.height);
+        const moved = {
+          x: Math.max(
+            0,
+            Math.min(display.bounds.width - width, cursor.x - display.bounds.x - anchor.x),
+          ),
+          y: Math.max(
+            0,
+            Math.min(display.bounds.height - height, cursor.y - display.bounds.y - anchor.y),
+          ),
+          width,
+          height,
+        };
+        settings.region = { ...moved, displayId: display.id };
+        picker.webContents.send('picker-region', moved);
+      }, 16);
+    });
     handle('picker:init', (e) => ({
       settings,
       display: pickers.find((w) => w.webContents === e.sender)?.display,
