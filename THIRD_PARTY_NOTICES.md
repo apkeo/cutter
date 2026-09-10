@@ -1,6 +1,6 @@
 # Third-party notices
 
-Cutter is copyright © 2026 Apkeo and contributors, licensed under GPL-3.0-or-later. The interface icons and Orbit screenshot demo are original assets included under the same license. No proprietary Font Awesome assets are distributed.
+Cutter is copyright © 2026 Apkeo and contributors, licensed under GPL-3.0-or-later. The original interface icons and Orbit screenshot demo are included under the same license. No proprietary Font Awesome assets are distributed.
 
 ## Media tools
 
@@ -17,3 +17,8 @@ Cutter invokes FFmpeg and FFprobe as separate local processes. Their original no
 - **Vite, TypeScript, Sass, esbuild, Playwright, electron-builder and mise** — development/build tools with their respective upstream licenses. See `package-lock.json` for the exact dependency tree.
 
 The automatically generated GitHub source archives contain Cutter's complete application source. Binary users can rebuild Cutter using `.tool-versions`, `package-lock.json`, and the checked-in release workflow. Third-party library sources and original license notices are available through the links above and bundled package metadata.
+
+## Cursor rendering
+
+- **Font Awesome Free** (Fonticons, Inc.) — the arrow-pointer, i-cursor, hand-pointer, computer-mouse, eye and eye-slash icons are used under CC BY 4.0. [Source and licenses](https://github.com/FortAwesome/Font-Awesome). Mouse-button highlights are original Cutter additions; no Pro icons or credentials are included.
+- **@napi-rs/canvas** — MIT; [source](https://github.com/Brooooooklyn/canvas). Native Skia rendering is used to export the same cursor animation shown in the editor.

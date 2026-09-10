@@ -1,3 +1,4 @@
+import type { CursorTrack } from './cursor';
 export interface Rect {
   x: number;
   y: number;
@@ -40,6 +41,7 @@ export interface Media {
   duration: number;
   size: number;
   hasAudio: boolean;
+  cursor?: CursorTrack;
   url: string;
 }
 export interface RenderComposition extends Composition {
@@ -51,6 +53,7 @@ export interface ExportRequest {
   composition: Composition;
   format: string;
   background: ArrayBuffer;
+  cursor?: CursorTrack;
   mask: ArrayBuffer;
 }
 export interface ExportResult {
@@ -80,6 +83,7 @@ export interface CutterAPI {
   chooseFolder(): Promise<string>;
   open(): Promise<Media | undefined>;
   importFile(file: string): Promise<Media>;
+  saveCursor(mediaId: string, track: CursorTrack): Promise<void>;
   filePath(file: File): string;
   picker(): Promise<void>;
   movePicker(rect: Rect | null): Promise<void>;

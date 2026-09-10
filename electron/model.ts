@@ -61,13 +61,16 @@ export function exportArgs(
   background: string,
   mask: string,
   output: string,
+  cursorOverlay?: string,
 ) {
   const isImage = media.kind === 'image';
   const args = ['-hide_banner', '-y', '-threads', '2'];
   if (!isImage) args.push('-ss', String(c.start), '-t', String(c.end - c.start));
   if (isImage) args.push('-loop', '1');
   args.push('-i', media.path, '-loop', '1', '-i', background, '-loop', '1', '-i', mask);
-  let filter = `[0:v]crop=${c.crop.width}:${c.crop.height}:${c.crop.x}:${c.crop.y},scale=${c.drawWidth}:${c.drawHeight}:flags=lanczos,setsar=1,setpts=PTS-STARTPTS,format=rgba[clip];[2:v]format=gray[mask];[clip][mask]alphamerge=shortest=1[rounded];[1:v]format=rgba[bg];[bg][rounded]overlay=(W-w)/2:(H-h)/2:shortest=1,setsar=1`;
+  if (cursorOverlay) args.push('-i', cursorOverlay);
+  let filter = `[0:v]crop=${c.crop.width}:${c.crop.height}:${c.crop.x}:${c.crop.y},scale=${c.drawWidth}:${c.drawHeight}:flags=lanczos,setsar=1,setpts=PTS-STARTPTS,format=rgba[clip];[2:v]format=gray[mask];[clip][mask]alphamerge=shortest=1[rounded];[1:v]format=rgba[bg];[bg][rounded]overlay=(W-w)/2:(H-h)/2:shortest=1:format=rgb,setsar=1`;
+  if (cursorOverlay) filter += '[base];[base][3:v]overlay=0:0:shortest=1:format=rgb';
   if (!isImage) filter += `,fps=${c.fps}`;
   if (['mp4', 'mov', 'webm'].includes(format)) filter += ',pad=ceil(iw/2)*2:ceil(ih/2)*2';
   if (format === 'gif') filter += ',split[g1][g2];[g1]palettegen[p];[g2][p]paletteuse';

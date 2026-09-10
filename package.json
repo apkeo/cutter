@@ -24,6 +24,8 @@
     "node": ">=22.12.0"
   },
   "dependencies": {
+    "@fortawesome/free-solid-svg-icons": "7.3.1",
+    "@napi-rs/canvas": "1.0.9",
     "ffmpeg-static": "5.3.0",
     "ffprobe-static": "3.1.0",
     "vue": "^3.5.42"
@@ -57,7 +59,9 @@
     ],
     "asarUnpack": [
       "node_modules/ffmpeg-static/**/*",
-      "node_modules/ffprobe-static/**/*"
+      "node_modules/ffprobe-static/**/*",
+      "dist/native/**/*",
+      "node_modules/@napi-rs/**/*"
     ],
     "win": {
       "target": [
@@ -81,7 +85,8 @@
       "minimumSystemVersion": "13.0",
       "identity": null,
       "extendInfo": {
-        "NSScreenCaptureUsageDescription": "Cutter records the screen region you select to create screenshots and videos."
+        "NSScreenCaptureUsageDescription": "Cutter records the screen region you select to create screenshots and videos.",
+        "NSInputMonitoringUsageDescription": "Cutter records pointer positions and mouse button events only while you record a video, so you can edit cursor animations."
       }
     },
     "publish": {

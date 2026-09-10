@@ -1,3 +1,6 @@
+import { CursorRecorder, nativePath, validateTrack } from './cursor';
+import { renderCursorOverlay } from './cursor-render';
+import type { CursorTrack } from '../shared/cursor';
 import {
   app,
   BrowserWindow,
@@ -45,6 +48,15 @@ let main: BrowserWindow,
   pickers: PickerWindow[] = [],
   controls: BrowserWindow | null,
   settings: Settings;
+let cursorSaveQueue = Promise.resolve();
+let cursorRecorder: CursorRecorder | undefined;
+let nativeRecording:
+  | {
+      child: import('node:child_process').ChildProcessWithoutNullStreams;
+      output: string;
+      stopping: boolean;
+    }
+  | undefined;
 let recording: {
   child: ChildProcessWithoutNullStreams;
   output: string;
@@ -105,7 +117,7 @@ function registerShortcut(accelerator: string) {
   if (accelerator === settings?.shortcut && globalShortcut.isRegistered(accelerator)) return true;
   try {
     return globalShortcut.register(accelerator, () => {
-      if (recording || browserCapture) stopRecording();
+      if (recording || browserCapture || nativeRecording) stopRecording();
       else openPicker().catch(report);
     });
   } catch {
@@ -190,6 +202,10 @@ async function inspect(file: string): Promise<Media> {
     size: stat.size,
     hasAudio: info.streams.some((stream) => stream.codec_type === 'audio'),
   };
+  try {
+    const sidecar = JSON.parse(await fs.readFile(file + '.cutter.json', 'utf8'));
+    media.cursor = validateTrack(sidecar.edited);
+  } catch {}
   if (kind === 'video' && !media.duration) {
     const packets: { packets: { pts_time?: string; duration_time?: string }[] } = JSON.parse(
       await run(ffprobe, [
@@ -282,7 +298,7 @@ function closePickers() {
   picking = false;
 }
 async function openPicker() {
-  if (recording || browserCapture || picking || exporting) return;
+  if (recording || browserCapture || nativeRecording || picking || exporting) return;
   if (
     process.platform === 'darwin' &&
     systemPreferences.getMediaAccessStatus('screen') !== 'granted'
@@ -342,7 +358,8 @@ async function startCapture(
   data: { rect: Rect; mode: 'screenshot' | 'record' },
 ) {
   const picker = pickers.find((w) => w.webContents === sender);
-  if (!picker || recording || browserCapture) throw new Error('Open the screen picker first.');
+  if (!picker || recording || browserCapture || nativeRecording)
+    throw new Error('Open the screen picker first.');
   const display = picker.display;
   const b = display.bounds;
   const r: Rect = {
@@ -356,6 +373,91 @@ async function startCapture(
   if (!Object.values(r).every(Number.isFinite)) throw new Error('Invalid capture region.');
   settings.region = { ...r, displayId: display.id };
   await save();
+  if (data.mode === 'record') {
+    const bounds =
+      process.platform === 'win32'
+        ? screen.dipToScreenRect(null, {
+            x: b.x + r.x,
+            y: b.y + r.y,
+            width: r.width,
+            height: r.height,
+          })
+        : { x: b.x + r.x, y: b.y + r.y, width: r.width, height: r.height };
+    cursorRecorder = new CursorRecorder(bounds, settings.cursor);
+    try {
+      await cursorRecorder.start();
+    } catch (error) {
+      cursorRecorder.stop();
+      cursorRecorder = undefined;
+      throw error;
+    }
+  }
+  if (process.platform === 'darwin' && data.mode === 'record') {
+    closePickers();
+    await new Promise((resolve) => setTimeout(resolve, 220));
+    const output = await outputPath('Recording', 'mp4');
+    const child = spawn(
+      nativePath('capture-helper'),
+      [
+        String(display.id),
+        String(r.x),
+        String(r.y),
+        String(r.width),
+        String(r.height),
+        String(settings.captureFps),
+        String(display.scaleFactor),
+        settings.cursor ? '1' : '0',
+        output,
+      ],
+      { windowsHide: true },
+    );
+    nativeRecording = { child, output, stopping: false };
+    let pending = '',
+      errorText = '';
+    child.stdout.on('data', (data) => {
+      pending += data;
+      const lines = pending.split('\n');
+      pending = lines.pop() || '';
+      for (const line of lines)
+        try {
+          const message = JSON.parse(line);
+          if (message.ready) {
+            cursorRecorder?.begin(message.ms);
+            showRecordingControls(display, r);
+            send('recording', true);
+          }
+          if (message.error) errorText = message.error;
+        } catch {}
+    });
+    child.stderr.on('data', (d) => (errorText = (errorText + d).slice(-2000)));
+    child.on('error', (e) => {
+      cursorRecorder?.stop();
+      cursorRecorder = undefined;
+      nativeRecording = undefined;
+      main.show();
+      report(e);
+    });
+    child.on('close', async (code) => {
+      nativeRecording = undefined;
+      controls?.close();
+      controls = null;
+      send('recording', false);
+      main.show();
+      try {
+        if (code !== 0) throw new Error(errorText || 'Recording failed.');
+        const media = await inspect(output);
+        if (cursorRecorder) media.cursor = await cursorRecorder.finish(output, media.duration);
+        outputFiles.add(output);
+        send('media', media);
+      } catch (e) {
+        report(e);
+      } finally {
+        cursorRecorder?.stop();
+        cursorRecorder = undefined;
+      }
+    });
+    return;
+  }
   if (process.platform === 'darwin' || process.env.CUTTER_CAPTURE_ENGINE === 'browser') {
     closePickers();
     await new Promise((resolve) => setTimeout(resolve, 220));
@@ -449,11 +551,27 @@ async function startCapture(
       '18',
       '-pix_fmt',
       'yuv420p',
+      '-progress',
+      'pipe:1',
+      '-stats_period',
+      '0.02',
       output,
     ],
     { windowsHide: true },
   );
+  cursorRecorder?.begin();
   recording = { child, output, started: Date.now(), stopping: false };
+  let clockAligned = false,
+    clockBuffer = '';
+  child.stdout.on('data', (data) => {
+    if (clockAligned) return;
+    clockBuffer += data;
+    const match = clockBuffer.match(/out_time_us=(\d+)/);
+    if (match && Number(match[1]) > 0) {
+      cursorRecorder?.begin(Date.now() - Number(match[1]) / 1000);
+      clockAligned = true;
+    }
+  });
   let errorText = '';
   child.stderr.on('data', (d) => {
     errorText = (errorText + d).slice(-3000);
@@ -461,6 +579,8 @@ async function startCapture(
   child.on('error', (e) => {
     recording = null;
     controls?.close();
+    cursorRecorder?.stop();
+    cursorRecorder = undefined;
     report(e);
   });
   child.on('close', async (code) => {
@@ -469,10 +589,17 @@ async function startCapture(
     controls = null;
     send('recording', false);
     main.show();
-    if (code !== 0) return report(new Error(errorText || 'Recording failed.'));
+    if (code !== 0) {
+      cursorRecorder?.stop();
+      cursorRecorder = undefined;
+      return report(new Error(errorText || 'Recording failed.'));
+    }
     try {
       outputFiles.add(output);
-      send('media', await inspect(output));
+      const media = await inspect(output);
+      if (cursorRecorder) media.cursor = await cursorRecorder.finish(output, media.duration);
+      cursorRecorder = undefined;
+      send('media', media);
     } catch (e) {
       report(e);
     }
@@ -511,6 +638,12 @@ function showRecordingControls(display: Display, r: Rect) {
   controls.setContentProtection(true);
 }
 function stopRecording() {
+  cursorRecorder?.stop();
+  if (nativeRecording && !nativeRecording.stopping) {
+    nativeRecording.stopping = true;
+    nativeRecording.child.stdin.write('stop\n');
+    return;
+  }
   if (browserCapture && !browserCapture.stopping) {
     browserCapture.stopping = true;
     browserCapture.window.webContents.send('capture-stop');
@@ -599,7 +732,7 @@ app
         send('error', 'Capture shortcut is unavailable. Choose another in Settings.');
     });
     main.on('close', (e) => {
-      if (recording || browserCapture) {
+      if (recording || browserCapture || nativeRecording) {
         e.preventDefault();
         stopRecording();
       } else if (exporting) {
@@ -642,6 +775,20 @@ app
       if (!result.canceled) return inspect(result.filePaths[0]);
     });
     handle('media:import', (_, file: string) => inspect(file));
+    handle('cursor:save', (_, id: string, track: CursorTrack) => {
+      const saveTrack = async () => {
+      const media = mediaStore.get(id);
+      if (!media?.cursor) throw new Error('This file has no cursor recording.');
+      const edited = validateTrack(track);
+      const file = media.path + '.cutter.json';
+      const stored = JSON.parse(await fs.readFile(file, 'utf8'));
+      await fs.writeFile(file + '.tmp', JSON.stringify({ ...stored, edited }));
+      await fs.rename(file + '.tmp', file);
+      media.cursor = edited;
+      };
+      cursorSaveQueue = cursorSaveQueue.catch(()=>{}).then(saveTrack);
+      return cursorSaveQueue;
+    });
     handle('picker:open', openPicker);
     handle('picker:move', (e, rect: import('../shared/types').Rect | null) => {
       const picker = pickers.find((w) => w.webContents === e.sender);
@@ -719,6 +866,7 @@ app
       const capture = captureFor(event);
       const display = screen.getAllDisplays().find((d) => d.id === capture.displayId);
       if (display) showRecordingControls(display, capture.job.rect);
+      cursorRecorder?.begin();
       send('recording', true);
     });
     handle('capture:finish', async (event, error?: string) => {
@@ -751,7 +899,11 @@ app
           await fs.rm(capture.raw, { force: true });
         }
         outputFiles.add(capture.output);
-        send('media', await inspect(capture.output));
+        const media = await inspect(capture.output);
+        if (cursorRecorder)
+          media.cursor = await cursorRecorder.finish(capture.output, media.duration);
+        cursorRecorder = undefined;
+        send('media', media);
       } catch (failure) {
         report(
           new Error(
@@ -760,6 +912,8 @@ app
         );
       } finally {
         browserCapture = null;
+        cursorRecorder?.stop();
+        cursorRecorder = undefined;
         capture.window.close();
         send('recording', false);
         main.show();
@@ -787,10 +941,29 @@ app
       try {
         await fs.writeFile(bg, Buffer.from(input.background));
         await fs.writeFile(mask, Buffer.from(input.mask));
+        let overlay: string | undefined;
+        if (input.cursor && media.cursor && (input.cursor.visible || input.cursor.clicksVisible)) {
+          overlay = path.join(temp, 'cursor.mov');
+          await renderCursorOverlay(
+            ffmpeg,
+            overlay,
+            media,
+            c,
+            input.composition,
+            validateTrack(input.cursor),
+            (child) => {
+              exporting = child;
+            },
+          );
+        }
         await new Promise<void>((resolve, reject) => {
-          const child = spawn(ffmpeg, exportArgs(media, c, input.format, bg, mask, output), {
-            windowsHide: true,
-          });
+          const child = spawn(
+            ffmpeg,
+            exportArgs(media, c, input.format, bg, mask, output, overlay),
+            {
+              windowsHide: true,
+            },
+          );
           exporting = child;
           let errors = '',
             progress = '';
@@ -881,6 +1054,8 @@ app
 app.on('window-all-closed', () => app.quit());
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
+  cursorRecorder?.stop();
+  nativeRecording?.child.kill();
   recording?.child.kill();
   exporting?.kill();
   browserCapture?.window.destroy();

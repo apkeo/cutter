@@ -11,6 +11,7 @@ const api: CutterAPI = {
   chooseFolder: invoke('folder:choose'),
   open: invoke('media:open'),
   importFile: invoke('media:import'),
+  saveCursor: invoke('cursor:save'),
   filePath: (file) => webUtils.getPathForFile(file),
   picker: invoke('picker:open'),
   movePicker: invoke('picker:move'),

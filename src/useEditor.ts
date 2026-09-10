@@ -1,3 +1,4 @@
+import { drawCursor, smoothPoints, type CursorTrack } from '../shared/cursor';
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, shallowRef, watch } from 'vue';
 import type { Composition, Media, Rect, Settings, ExportResult } from '../shared/types';
 import { en, pl } from './i18n';
@@ -35,6 +36,10 @@ export function useEditor() {
   });
   const composition = reactive<Composition>({ ...defaults, crop: { ...defaults.crop } });
   const media = shallowRef<Media>();
+  const cursor = ref<CursorTrack>();
+  const cursorPoints = computed(() =>
+    cursor.value?.smooth ? smoothPoints(cursor.value) : undefined,
+  );
   const source = shallowRef<HTMLImageElement | HTMLVideoElement>();
   const stage = ref<HTMLElement>();
   const canvas = ref<HTMLCanvasElement>();
@@ -282,8 +287,19 @@ export function useEditor() {
     ctx.setTransform(pw / w, 0, 0, ph / h, 0, 0);
     ctx.clearRect(0, 0, w, h);
     try {
-      if (cropMode.value) ctx.drawImage(s, 0, 0, w, h);
-      else {
+      if (cropMode.value) {
+        ctx.drawImage(s, 0, 0, w, h);
+        if (cursor.value)
+          drawCursor(
+            ctx,
+            cursor.value,
+            currentTime.value,
+            m.width,
+            m.height,
+            undefined,
+            cursorPoints.value,
+          );
+      } else {
         ctx.fillStyle = composition.background;
         ctx.fillRect(0, 0, w, h);
         const g = geometry(),
@@ -296,6 +312,20 @@ export function useEditor() {
         ctx.roundRect(g.x, g.y, g.w, g.h, g.r);
         ctx.clip();
         ctx.drawImage(s, c.x * sx, c.y * sy, c.width * sx, c.height * sy, g.x, g.y, g.w, g.h);
+        if (cursor.value) {
+          ctx.translate(g.x, g.y);
+          ctx.scale(g.w / c.width, g.h / c.height);
+          ctx.translate(-c.x, -c.y);
+          drawCursor(
+            ctx,
+            cursor.value,
+            currentTime.value,
+            m.width,
+            m.height,
+            undefined,
+            cursorPoints.value,
+          );
+        }
         ctx.restore();
       }
     } catch {
@@ -325,6 +355,7 @@ export function useEditor() {
     frame = undefined;
     hideLoupe();
     media.value = m;
+    cursor.value = m.cursor ? JSON.parse(JSON.stringify(m.cursor)) : undefined;
     cropMode.value = false;
     const saved = { ...settings.editor, crop: { ...settings.editor.crop } };
     composition.crop = { x: 0, y: 0, width: m.width, height: m.height };
@@ -691,6 +722,7 @@ export function useEditor() {
       exported.value = await api.export({
         mediaId: media.value.id,
         composition: snapshot(),
+        cursor: cursor.value ? JSON.parse(JSON.stringify(cursor.value)) : undefined,
         format: format.value,
         background: await png(bg),
         mask: await png(mask),
@@ -729,6 +761,16 @@ export function useEditor() {
       normalize();
     }
   }
+  watch(
+    cursor,
+    () => {
+      draw();
+      const id = media.value?.id;
+      if (id && cursor.value)
+        void guard(() => api.saveCursor(id, JSON.parse(JSON.stringify(cursor.value))));
+    },
+    { deep: true },
+  );
   watch(
     composition,
     () => {
@@ -790,6 +832,7 @@ export function useEditor() {
     stopPlayback();
   });
   return {
+    cursor,
     magnifier,
     loupe,
     showLoupe,

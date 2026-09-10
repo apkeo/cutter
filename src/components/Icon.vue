@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
 defineProps<{ name: string }>();
+const faIcons: Record<string, typeof faEye> = { eye: faEye, 'eye-slash': faEyeSlash };
 const paths: Record<string, string> = {
   scan: 'M8 3H5a2 2 0 0 0-2 2v3m13-5h3a2 2 0 0 1 2 2v3M3 16v3a2 2 0 0 0 2 2h3m8 0h3a2 2 0 0 0 2-2v-3M7 7h10v10H7z',
   layers: 'm12 3 9 5-9 5-9-5 9-5Zm-9 9 9 5 9-5M3 16l9 5 9-5',
@@ -28,7 +30,7 @@ const paths: Record<string, string> = {
 
 <template>
   <svg
-    viewBox="0 0 24 24"
+    :viewBox="faIcons[name] ? `0 0 ${faIcons[name].icon[0]} ${faIcons[name].icon[1]}` : '0 0 24 24'"
     fill="none"
     stroke="currentColor"
     stroke-width="1.6"
@@ -36,7 +38,13 @@ const paths: Record<string, string> = {
     stroke-linejoin="round"
     aria-hidden="true"
   >
-    <path :d="paths[name] || paths.layers" />
+    <path
+      v-if="faIcons[name]"
+      :d="String(faIcons[name].icon[4])"
+      fill="currentColor"
+      stroke="none"
+    />
+    <path v-else :d="paths[name] || paths.layers" />
   </svg>
 </template>
 

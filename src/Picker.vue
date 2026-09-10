@@ -9,6 +9,10 @@ const toolbar = ref<HTMLElement>();
 const working = ref(false);
 const language = ref('en');
 const error = ref('');
+const hideCursor = ref(false);
+async function saveCursorOption() {
+  await api.saveSettings({ cursor: !hideCursor.value });
+}
 const viewport = reactive({ x: 0, y: 0, width: innerWidth, height: innerHeight });
 const displayBounds = reactive({ ...viewport });
 const surfaceStyle = computed(() => ({
@@ -122,6 +126,7 @@ onMounted(async () => {
   Object.assign(viewport, bounds);
   Object.assign(displayBounds, display.bounds);
   language.value = settings.language;
+  hideCursor.value = !settings.cursor;
   Object.assign(
     rect,
     settings.region?.displayId === display.id
@@ -160,7 +165,15 @@ onUnmounted(() => {
       <i v-for="handle in handles" :key="handle" class="resize-handle" :data-handle="handle" />
     </div>
     <div id="picker-tools" ref="toolbar" :style="toolbarStyle">
-      <span class="mini-brand">c</span>
+      <span class="mini-brand">c</span
+      ><label class="cursor-option"
+        ><input
+          id="hide-system-cursor"
+          type="checkbox"
+          v-model="hideCursor"
+          @change="saveCursorOption"
+        />{{ language === 'pl' ? 'Ukryj kursor systemowy' : 'Hide system cursor' }}</label
+      >
       <button id="screenshot" :disabled="working" @click="capture('screenshot')">
         <Icon name="camera" />{{ language === 'pl' ? 'Zrzut ekranu' : 'Screenshot' }}
       </button>
@@ -178,6 +191,17 @@ onUnmounted(() => {
 <style lang="scss">
 @use './styles/base';
 @use './styles/picker';
+.cursor-option {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  padding: 0 8px;
+  input {
+    width: auto;
+    accent-color: #c0f28c;
+  }
+}
 .picker-surface {
   position: fixed;
   overflow: hidden;

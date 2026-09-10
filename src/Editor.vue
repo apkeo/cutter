@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import Icon from './components/Icon.vue';
+import CursorTimeline from './components/CursorTimeline.vue';
 import { useEditor, time } from './useEditor';
 
 const {
+  cursor,
+  seek,
   magnifier,
   loupe,
   showLoupe,
@@ -296,6 +299,15 @@ const handles = ['n', 's', 'e', 'w', 'nw', 'ne', 'sw', 'se'];
               ><span>{{ t('autosaved') }}</span>
             </div>
           </div>
+          <CursorTimeline
+            v-if="cursor && media"
+            v-model:track="cursor"
+            :duration="media.duration"
+            :width="media.width"
+            :height="media.height"
+            :language="settings.language"
+            @seek="seek"
+          />
         </section>
         <aside class="inspector">
           <div class="inspector-title">
