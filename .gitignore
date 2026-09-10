@@ -1,0 +1,8 @@
+node_modules/
+dist/
+release/
+test-results/
+.local-test/
+.legacy/
+docs/README-public.md
+scripts/release-config.cjs

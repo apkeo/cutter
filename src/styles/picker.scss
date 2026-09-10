@@ -1,0 +1,160 @@
+.picker-body {
+  background: transparent !important;
+  user-select: none;
+  cursor: crosshair;
+}
+#selection {
+  position: absolute;
+  border: 1.5px solid #d2fda5;
+  box-shadow: 0 0 0 20000px #070c09b8;
+  cursor: move;
+  touch-action: none;
+}
+#dimensions {
+  position: absolute;
+  top: -30px;
+  left: 0;
+  background: #172014;
+  border: 1px solid #50633f;
+  border-radius: 5px;
+  padding: 5px 8px;
+  font-size: 10px;
+  color: #d0edb7;
+  white-space: nowrap;
+}
+#picker-help {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  background: #172014ed;
+  border: 1px solid #3f4e34;
+  border-radius: 8px;
+  padding: 12px 18px;
+  font-size: 12px;
+  color: #d1e1c7;
+  pointer-events: none;
+}
+#picker-help span {
+  color: #8c9e80;
+  margin-left: 20px;
+  font-size: 10px;
+}
+#picker-tools {
+  position: absolute;
+  z-index: 4;
+  background: #181e16;
+  border: 1px solid #485b39;
+  border-radius: 11px;
+  padding: 7px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  box-shadow: 0 8px 35px #0008;
+  cursor: default;
+  white-space: nowrap;
+}
+#picker-tools button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+}
+#picker-tools button:hover {
+  background: #35432b;
+}
+#picker-tools #record {
+  background: #c0f28c;
+  color: #203413;
+}
+.mini-brand {
+  background: #c0f28c;
+  color: #223517;
+  border-radius: 5px;
+  font-size: 22px;
+  font-weight: 700;
+  width: 23px;
+  height: 23px;
+  line-height: 18px;
+  text-align: center;
+  margin: 0 7px;
+}
+.tool-divider {
+  height: 22px;
+  width: 1px;
+  background: #3b4932;
+  margin: 0 2px;
+}
+.edge {
+  position: absolute;
+  z-index: 1;
+}
+.edge[data-handle='n'] {
+  top: -5px;
+  left: 5px;
+  right: 5px;
+  height: 10px;
+  cursor: ns-resize;
+}
+.edge[data-handle='s'] {
+  bottom: -5px;
+  left: 5px;
+  right: 5px;
+  height: 10px;
+  cursor: ns-resize;
+}
+.edge[data-handle='w'] {
+  left: -5px;
+  top: 5px;
+  bottom: 5px;
+  width: 10px;
+  cursor: ew-resize;
+}
+.edge[data-handle='e'] {
+  right: -5px;
+  top: 5px;
+  bottom: 5px;
+  width: 10px;
+  cursor: ew-resize;
+}
+.recording-body {
+  background: #181f16;
+  border: 1px solid #485b39;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 15px;
+  border-radius: 10px;
+  app-region: drag;
+}
+.recording-indicator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+.red-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #ff796e;
+  animation: pulse 1.2s infinite;
+}
+.recording-body button {
+  app-region: no-drag;
+  background: #c0f28c;
+  color: #1b2b10;
+  font-size: 11px;
+  border-radius: 6px;
+  padding: 9px 13px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+#timer {
+  font-variant-numeric: tabular-nums;
+}

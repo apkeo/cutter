@@ -1,0 +1,111 @@
+{
+  "name": "cutter-studio",
+  "version": "1.0.0",
+  "description": "Capture a little. Make a big impression. A local-first screen capture and composition studio for Windows and macOS.",
+  "main": "dist/electron/main.cjs",
+  "author": "Apkeo",
+  "private": true,
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "vue-tsc --noEmit && vite build && node scripts/build.mjs",
+    "start": "electron .",
+    "check": "vue-tsc --noEmit",
+    "test": "node scripts/build.mjs && node --test tests/model.test.cjs",
+    "test:smoke": "npm run build && node tests/smoke.cjs",
+    "pack": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder --win nsis",
+    "test:capture": "npm run build && node tests/capture.cjs",
+    "format": "prettier --write \"src/**/*.{ts,vue,scss}\" \"electron/*.ts\" \"shared/*.ts\"",
+    "dist:mac": "npm run build && electron-builder --mac dmg zip --publish never",
+    "dist:win": "npm run build && electron-builder --win nsis zip --publish never",
+    "test:release": "node tests/release.cjs"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "dependencies": {
+    "ffmpeg-static": "5.3.0",
+    "ffprobe-static": "3.1.0",
+    "vue": "^3.5.42"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.0",
+    "@types/node": "^24.13.4",
+    "@vitejs/plugin-vue": "^6.0.8",
+    "electron": "44.3.0",
+    "electron-builder": "^26.0.12",
+    "esbuild": "^0.28.2",
+    "prettier": "^3.9.6",
+    "sass": "^1.104.0",
+    "typescript": "6.0.3",
+    "vite": "^8.2.2",
+    "vue-tsc": "^3.3.11"
+  },
+  "build": {
+    "appId": "com.apkeo.cutter",
+    "productName": "Cutter",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json",
+      "assets/icon.png",
+      "LICENSE",
+      "THIRD_PARTY_NOTICES.md",
+      "!node_modules/ffprobe-static/bin/linux/**/*"
+    ],
+    "asarUnpack": [
+      "node_modules/ffmpeg-static/**/*",
+      "node_modules/ffprobe-static/**/*"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "zip"
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "artifactName": "Cutter-${version}-${os}-${arch}.${ext}",
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.productivity",
+      "icon": "assets/icon.png",
+      "minimumSystemVersion": "13.0",
+      "identity": null,
+      "extendInfo": {
+        "NSScreenCaptureUsageDescription": "Cutter records the screen region you select to create screenshots and videos."
+      }
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "apkeo",
+      "repo": "cutter",
+      "releaseType": "draft"
+    }
+  },
+  "type": "module",
+  "allowScripts": {
+    "ffmpeg-static@5.3.0": true,
+    "esbuild@0.28.2": true,
+    "@parcel/watcher@2.6.0": true,
+    "electron-winstaller@5.4.0": true
+  },
+  "packageManager": "yarn@4.16.0+sha512.5374c94eb4ef6aa8188fb112f20c1aa6569f248d676c5e576e1fd2a1a4d8d87a96df65d9dfe1c2a0252cbe38bda46cf18d955005b81b43cc7607a5c9d56fd2b6",
+  "license": "GPL-3.0-or-later",
+  "homepage": "https://github.com/apkeo/cutter",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/apkeo/cutter.git"
+  },
+  "bugs": {
+    "url": "https://github.com/apkeo/cutter/issues"
+  }
+}
