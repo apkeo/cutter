@@ -6,7 +6,7 @@ const root=path.resolve(__dirname,'..'),profile=path.join(root,'.local-test','pa
 async function main(){
  await fs.mkdir(profile,{recursive:true});await fs.writeFile(path.join(profile,'settings.json'),JSON.stringify({folder:path.join(profile,'outputs'),shortcut:'Control+Alt+Shift+7'}));
  const app=await electron.launch({executablePath:path.join(root,'release','win-unpacked','Cutter.exe'),args:[],env:{...process.env,CUTTER_TEST_HOME:profile}});
- const page=await app.firstWindow();const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ const page=await require('./app-window.cjs')(app);const errors=[];page.on('pageerror',e=>errors.push(e.message));
  try{
   await page.waitForSelector('#empty-capture');
   await page.evaluate(()=>{const input=document.createElement('input');input.type='file';input.id='test-drop-input';document.body.append(input);});

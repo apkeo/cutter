@@ -32,6 +32,7 @@ export function useEditor() {
     language: 'en',
     captureFps: 30,
     cursor: true,
+    minimizeToTray: true,
     editor: { ...defaults },
   });
   const composition = reactive<Composition>({ ...defaults, crop: { ...defaults.crop } });
@@ -132,6 +133,7 @@ export function useEditor() {
     language: 'en' as Settings['language'],
     captureFps: 30,
     cursor: true,
+    minimizeToTray: true,
   });
   const settingsError = ref('');
   const exportError = ref('');
@@ -668,6 +670,7 @@ export function useEditor() {
           language: draft.language,
           captureFps: Number(draft.captureFps),
           cursor: draft.cursor,
+          minimizeToTray: draft.minimizeToTray,
         }),
       );
       settingsDialog.value?.close();

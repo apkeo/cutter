@@ -12,9 +12,9 @@ const {execFileSync}=require('node:child_process');
  if(process.platform==='darwin')assert.match(execFileSync(path.join(native,'capture-helper'),['--self-test'],{encoding:'utf8'}),/capture-helper-ok/);
  const app=await electron.launch({...packaged?{executablePath:binary,args:[]}:{args:[root]},env:{...process.env,CUTTER_TEST_HOME:profile}});
  try{
-  const page=await app.firstWindow();await page.waitForSelector('#empty-capture');const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  const page=await require('./app-window.cjs')(app);await page.waitForSelector('#empty-capture');const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const media=await page.evaluate(file=>window.cutter.importFile(file),source);assert.equal(media.cursor.samples.length,61);
-  await app.evaluate(({BrowserWindow},m)=>BrowserWindow.getAllWindows()[0].webContents.send('media',m),media);await page.waitForSelector('#cursor-timeline');await page.locator('#fit-media').click();
+  await app.evaluate(({BrowserWindow},m)=>BrowserWindow.getAllWindows().find(w => w.webContents.getURL().includes('page=index')).webContents.send('media',m),media);await page.waitForSelector('#cursor-timeline');await page.locator('#fit-media').click();
   const videoTrack=await page.locator('#timeline-track').boundingBox();for(const row of await page.locator('.cursor-events').all()){const r=await row.boundingBox();assert.ok(Math.abs(r.x-videoTrack.x)<2,'Cursor rows align with video time');}
   await page.locator('#cursor-smooth').check();await page.locator('.cursor-click.left').click();assert.equal(await page.locator('#cursor-event-end').inputValue(),'1.2');
   await page.locator('#cursor-event-end').fill('1.3');await page.locator('#cursor-event-end').blur();await page.locator('#cursor-event-x').fill('220');await page.locator('#cursor-event-x').blur();

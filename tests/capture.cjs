@@ -7,7 +7,7 @@ const root=path.resolve(__dirname,'..'),dir=path.join(root,'.local-test','captur
 async function main(){
  await fs.mkdir(dir,{recursive:true});await fs.writeFile(path.join(dir,'settings.json'),JSON.stringify({folder:path.join(dir,'outputs'),shortcut:'Control+Alt+Shift+8',language:'en',captureFps:24}));
  let app=await electron.launch({args:[root],env:{...process.env,CUTTER_TEST_HOME:dir}});
- let page=await app.firstWindow();const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ let page=await require('./app-window.cjs')(app);const errors=[];page.on('pageerror',e=>errors.push(e.message));
  try{
   await page.waitForSelector('#empty-capture');
   const target=await app.evaluate(async({BrowserWindow,screen})=>{const display=screen.getDisplayNearestPoint(screen.getCursorScreenPoint());const b=display.bounds;const target=new BrowserWindow({x:b.x+100,y:b.y+100,width:480,height:320,frame:false,alwaysOnTop:true,backgroundColor:'#336699',webPreferences:{nodeIntegration:false,contextIsolation:true}});await target.loadURL('data:text/html,<body style="margin:0;background:%23336699"></body>');return {displayId:display.id,rect:{x:120,y:120,width:320,height:200},scale:display.scaleFactor};});
@@ -24,7 +24,7 @@ async function main(){
   await page.waitForFunction(()=>document.getElementById('project-name').textContent.startsWith('Recording-'),{},{timeout:30000});settings=await page.evaluate(()=>window.cutter.settings());const recordingFile=settings.lastFile;const recordingInfo=JSON.parse(execFileSync(require('ffprobe-static').path,['-v','error','-show_format','-show_streams','-of','json',recordingFile],{windowsHide:true}));assert.ok(Number(recordingInfo.format.duration)>1);assert.equal(recordingInfo.streams[0].width,Math.round(320*target.scale));const cursorData=JSON.parse(await fs.readFile(recordingFile+'.cutter.json','utf8'));assert.ok(cursorData.original.samples.length>10);assert.equal(cursorData.original.nativeVisible,false);assert.equal(cursorData.edited.visible,true);
   await page.locator('#settings-nav').click();await page.locator('#setting-language').selectOption('pl');await page.locator('#save-settings').click();await page.waitForFunction(()=>document.documentElement.lang==='pl');
   await new Promise(r=>setTimeout(r,400));await app.close();
-  app=await electron.launch({args:[root],env:{...process.env,CUTTER_TEST_HOME:dir}});page=await app.firstWindow();await page.waitForFunction(()=>document.getElementById('project-name')?.textContent.startsWith('Recording-'),{},{timeout:30000});assert.equal(await page.locator('#radius-value').inputValue(),'18');assert.equal(await page.locator('#background').inputValue(),'#123456');assert.equal(await page.locator('#capture').textContent(),'Nowy wycinek');
+  app=await electron.launch({args:[root],env:{...process.env,CUTTER_TEST_HOME:dir}});page=await require('./app-window.cjs')(app);await page.waitForFunction(()=>document.getElementById('project-name')?.textContent.startsWith('Recording-'),{},{timeout:30000});assert.equal(await page.locator('#radius-value').inputValue(),'18');assert.equal(await page.locator('#background').inputValue(),'#123456');assert.equal(await page.locator('#capture').textContent(),'Nowy wycinek');
   assert.deepEqual(errors,[]);console.log('PASS: real screenshot pixels + HiDPI dimensions, recording, region persistence, preferences + last media restored after restart.');
  }finally{await page.evaluate(()=>window.cutter.stop()).catch(()=>{});await new Promise(r=>setTimeout(r,1000));await app.close();}
 }

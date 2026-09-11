@@ -12,21 +12,21 @@ async function main() {
   execFileSync(require('ffmpeg-static'), ['-v','error','-y','-f','lavfi','-i','testsrc2=size=640x360:rate=24','-f','lavfi','-i','sine=frequency=440','-t','2','-c:v','libx264','-pix_fmt','yuv420p','-c:a','aac',source], { windowsHide: true });
   const binary = process.platform === 'darwin' ? path.join(root,'release',process.arch === 'arm64' ? 'mac-arm64' : 'mac','Cutter.app','Contents','MacOS','Cutter') : path.join(root,'release','win-unpacked','Cutter.exe');
   const app = await electron.launch({ executablePath: binary, args: [], env: { ...process.env, CUTTER_TEST_HOME: profile } });
-  const page = await app.firstWindow();
+  const page = await require('./app-window.cjs')(app);
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   try {
     await page.waitForSelector('#empty-capture');
     await page.evaluate(() => { const create = document.createElement.bind(document); document.createElement = (...args) => { const element = create(...args); if(args[0] === 'video') window.testVideo = element; return element; }; });
     const media = await page.evaluate(file => window.cutter.importFile(file), source);
-    await app.evaluate(({ BrowserWindow }, media) => BrowserWindow.getAllWindows()[0].webContents.send('media', media), media);
+    await app.evaluate(({ BrowserWindow }, media) => BrowserWindow.getAllWindows().find(w => w.webContents.getURL().includes('page=index')).webContents.send('media', media), media);
     await page.waitForFunction(() => document.getElementById('project-name').textContent === 'Focus session');
     await page.locator('#fit-media').click();
     await page.locator('#start').fill('0.25');await page.locator('#end').fill('1.5');await page.locator('#end').blur();
     for (const format of ['mp4','mov','webm','gif']) {
       await page.locator('#export').click();await page.locator('#export-format').selectOption(format);await page.locator('#render').click();
       await page.locator('#export-result').waitFor({ state: 'visible', timeout: 90000 });
-      const output = await page.locator('#export-filename').textContent();assert.ok((await fs.stat(output)).size > 1000);
+      const output = await page.locator('#export-filename').textContent();assert.ok((await fs.stat(output)).size > 1000);assert.equal((await page.evaluate(()=>window.cutter.settings())).lastSavedFile,output,'Tray remembers latest exported file');
       await page.locator('#export-dialog .close-dialog').click();
     }
     assert.equal(media.hasAudio, true);

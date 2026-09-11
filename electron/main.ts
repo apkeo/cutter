@@ -1,3 +1,4 @@
+import { QuickTray } from './tray';
 import { CursorRecorder, nativePath, validateTrack } from './cursor';
 import { renderCursorOverlay } from './cursor-render';
 import type { CursorTrack } from '../shared/cursor';
@@ -48,6 +49,37 @@ let main: BrowserWindow,
   pickers: PickerWindow[] = [],
   controls: BrowserWindow | null,
   settings: Settings;
+const quickTray = new QuickTray(() =>
+  secureWindow(
+    {
+      width: 340,
+      height: 414,
+      show: false,
+      resizable: false,
+      maximizable: false,
+      minimizable: false,
+      skipTaskbar: true,
+      alwaysOnTop: true,
+      transparent: true,
+      backgroundColor: '#00000000',
+    },
+    'tray.html',
+  ),
+);
+function minimizeStudio() {
+  main.hide();
+  if (process.platform === 'darwin') app.dock?.hide();
+}
+function showStudio() {
+  if (main.isMinimized()) main.restore();
+  main.show();
+  main.focus();
+}
+async function rememberOutput(file: string) {
+  outputFiles.add(file);
+  settings.lastSavedFile = file;
+  await save();
+}
 let cursorSaveQueue = Promise.resolve();
 let cursorRecorder: CursorRecorder | undefined;
 let nativeRecording:
@@ -447,7 +479,7 @@ async function startCapture(
         if (code !== 0) throw new Error(errorText || 'Recording failed.');
         const media = await inspect(output);
         if (cursorRecorder) media.cursor = await cursorRecorder.finish(output, media.duration);
-        outputFiles.add(output);
+        await rememberOutput(output);
         send('media', media);
       } catch (e) {
         report(e);
@@ -531,7 +563,7 @@ async function startCapture(
   ];
   if (image) {
     await run(ffmpeg, [...args, '-frames:v', '1', output]);
-    outputFiles.add(output);
+    await rememberOutput(output);
     const m = await inspect(output);
     send('media', m);
     main.show();
@@ -595,7 +627,7 @@ async function startCapture(
       return report(new Error(errorText || 'Recording failed.'));
     }
     try {
-      outputFiles.add(output);
+      await rememberOutput(output);
       const media = await inspect(output);
       if (cursorRecorder) media.cursor = await cursorRecorder.finish(output, media.duration);
       cursorRecorder = undefined;
@@ -654,12 +686,49 @@ function stopRecording() {
     recording.child.stdin.write('q');
   }
 }
+async function performFileAction(action: string, file: string) {
+  if (!outputFiles.has(file)) throw new Error('Unknown output file.');
+  if (action === 'path') await clipboard.writeText(file);
+  if (action === 'reveal') shell.showItemInFolder(file);
+  if (action === 'copy') {
+    if (process.platform === 'darwin') {
+      await clipboard.write([
+        new ClipboardItem({
+          'electron application/osclipboard;format="public.file-url"': new Blob([
+            pathToFileURL(file).href,
+          ]),
+        }),
+      ]);
+      return true;
+    }
+    // Use the native FileDrop format. Electron custom formats register a different
+    // clipboard format even when named CF_HDROP, which Explorer cannot paste.
+    // The path is data in an environment variable, never interpolated into code.
+    await run(
+      path.join(
+        process.env.SystemRoot || 'C:\\Windows',
+        'System32/WindowsPowerShell/v1.0/powershell.exe',
+      ),
+      [
+        '-NoProfile',
+        '-NonInteractive',
+        '-STA',
+        '-Command',
+        "$ErrorActionPreference = 'Stop'; Add-Type -AssemblyName System.Windows.Forms; $files = New-Object System.Collections.Specialized.StringCollection; [void]$files.Add($env:CUTTER_CLIPBOARD_FILE); [System.Windows.Forms.Clipboard]::SetFileDropList($files)",
+      ],
+      undefined,
+      { ...process.env, CUTTER_CLIPBOARD_FILE: file },
+    );
+  }
+  return true;
+}
+
 function handle<T extends unknown[]>(
   channel: string,
   fn: (event: IpcMainInvokeEvent, ...args: T) => unknown,
 ) {
   ipcMain.handle(channel, async (event, ...args) => {
-    const valid = [main, controls, browserCapture?.window, ...pickers].some(
+    const valid = [main, controls, quickTray.window, browserCapture?.window, ...pickers].some(
       (w) => w && !w.isDestroyed() && w.webContents === event.sender,
     );
     if (!valid || event.senderFrame !== event.sender.mainFrame)
@@ -690,6 +759,7 @@ app
       language: 'en',
       captureFps: 30,
       cursor: true,
+      minimizeToTray: true,
       editor: {
         width: 1920,
         height: 1080,
@@ -726,8 +796,19 @@ app
       { width: 1440, height: 960, minWidth: 1080, minHeight: 740, show: false },
       'index.html',
     );
+    main.on('show', () => {
+      if (process.platform === 'darwin') void app.dock?.show();
+    });
+    main.on('minimize', () => {
+      if (settings.minimizeToTray) minimizeStudio();
+    });
+    main.on('closed', () => {
+      quickTray.destroy();
+      app.quit();
+    });
     main.once('ready-to-show', () => {
       main.show();
+      quickTray.configure(settings.minimizeToTray);
       if (!registerShortcut(settings.shortcut))
         send('error', 'Capture shortcut is unavailable. Choose another in Settings.');
     });
@@ -752,6 +833,11 @@ app
       if ([24, 30, 60].includes(Number(value.captureFps)))
         settings.captureFps = Number(value.captureFps);
       if (typeof value.cursor === 'boolean') settings.cursor = value.cursor;
+      if (typeof value.minimizeToTray === 'boolean') {
+        settings.minimizeToTray = value.minimizeToTray;
+        quickTray.configure(value.minimizeToTray);
+        if (!value.minimizeToTray && !main.isVisible()) showStudio();
+      }
       if (value.editor) settings.editor = { ...settings.editor, ...value.editor };
       await save();
       return settings;
@@ -898,7 +984,7 @@ app
           ]);
           await fs.rm(capture.raw, { force: true });
         }
-        outputFiles.add(capture.output);
+        await rememberOutput(capture.output);
         const media = await inspect(capture.output);
         if (cursorRecorder)
           media.cursor = await cursorRecorder.finish(capture.output, media.duration);
@@ -919,8 +1005,33 @@ app
         main.show();
       }
     });
+    handle('tray:action', async (_, action: string) => {
+      if (action === 'dismiss') quickTray.hide();
+      else if (action === 'open') {
+        quickTray.hide();
+        showStudio();
+      } else if (action === 'capture') {
+        quickTray.hide();
+        await openPicker();
+      } else if (action === 'folder') {
+        await fs.mkdir(settings.folder, { recursive: true });
+        const error = await shell.openPath(settings.folder);
+        if (error) throw new Error(error);
+        quickTray.hide();
+      } else if (action === 'copy') {
+        const file = settings.lastSavedFile || settings.lastFile;
+        if (!file) throw new Error('No saved file yet.');
+        await fs.access(file);
+        outputFiles.add(file);
+        await performFileAction('copy', file);
+      } else if (action === 'quit') {
+        quickTray.hide();
+        showStudio();
+        main.close();
+      }
+    });
     handle('window:action', (_, action: string) => {
-      if (action === 'minimize') main.minimize();
+      if (action === 'minimize') settings.minimizeToTray ? minimizeStudio() : main.minimize();
       if (action === 'maximize') main.isMaximized() ? main.unmaximize() : main.maximize();
       if (action === 'close') main.close();
     });
@@ -994,7 +1105,7 @@ app
                 ),
           );
         });
-        outputFiles.add(output);
+        await rememberOutput(output);
         return { path: output, name: path.basename(output) };
       } catch (e) {
         await fs.rm(output, { force: true });
@@ -1010,49 +1121,18 @@ app
         exporting.kill();
       }
     });
-    handle('file:action', async (_, action: string, file: string) => {
-      if (!outputFiles.has(file)) throw new Error('Unknown output file.');
-      if (action === 'path') await clipboard.writeText(file);
-      if (action === 'reveal') shell.showItemInFolder(file);
-      if (action === 'copy') {
-        if (process.platform === 'darwin') {
-          await clipboard.write([
-            new ClipboardItem({
-              'electron application/osclipboard;format="public.file-url"': new Blob([
-                pathToFileURL(file).href,
-              ]),
-            }),
-          ]);
-          return true;
-        }
-        // Use the native FileDrop format. Electron custom formats register a different
-        // clipboard format even when named CF_HDROP, which Explorer cannot paste.
-        // The path is data in an environment variable, never interpolated into code.
-        await run(
-          path.join(
-            process.env.SystemRoot || 'C:\\Windows',
-            'System32/WindowsPowerShell/v1.0/powershell.exe',
-          ),
-          [
-            '-NoProfile',
-            '-NonInteractive',
-            '-STA',
-            '-Command',
-            "$ErrorActionPreference = 'Stop'; Add-Type -AssemblyName System.Windows.Forms; $files = New-Object System.Collections.Specialized.StringCollection; [void]$files.Add($env:CUTTER_CLIPBOARD_FILE); [System.Windows.Forms.Clipboard]::SetFileDropList($files)",
-          ],
-          undefined,
-          { ...process.env, CUTTER_CLIPBOARD_FILE: file },
-        );
-      }
-      return true;
-    });
+    handle('file:action', (_, action: string, file: string) => performFileAction(action, file));
   })
   .catch((e) => {
     console.error(e);
     app.quit();
   });
 app.on('window-all-closed', () => app.quit());
+app.on('activate', () => {
+  if (main && !main.isDestroyed()) showStudio();
+});
 app.on('will-quit', () => {
+  quickTray.destroy();
   globalShortcut.unregisterAll();
   cursorRecorder?.stop();
   nativeRecording?.child.kill();

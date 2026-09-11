@@ -20,7 +20,7 @@ const points = computed(() =>
     (_, i) => i % Math.max(1, Math.ceil(props.track.samples.length / 200)) === 0,
   ),
 );
-function select(kind: 'sample' | 'click', index: number) {
+function select(kind: 'sample' | 'click', index: number, seek = true) {
   const value = kind === 'sample' ? props.track.samples[index] : props.track.clicks[index];
   if (!value) return;
   selection.value = { kind, index };
@@ -29,9 +29,26 @@ function select(kind: 'sample' | 'click', index: number) {
     x: Math.round(value.x * props.width),
     y: Math.round(value.y * props.height),
   });
-  emit('seek', value.t);
+  if (seek) emit('seek', value.t);
 }
-function pick(event: MouseEvent) {
+function scrub(event: PointerEvent, movement = false) {
+  if (event.button !== 0) return;
+  event.preventDefault();
+  const lane = event.currentTarget as HTMLElement;
+  const bounds = lane.getBoundingClientRect();
+  const updateTime = (e: PointerEvent) => {
+    const t = Math.max(0, Math.min(1, (e.clientX - bounds.left) / bounds.width)) * props.duration;
+    emit('seek', t);
+  };
+  if (movement) pick(event);
+  lane.setPointerCapture(event.pointerId);
+  updateTime(event);
+  lane.onpointermove = updateTime;
+  lane.onpointerup = lane.onpointercancel = () => {
+    lane.onpointermove = null;
+  };
+}
+function pick(event: PointerEvent) {
   const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect();
   const t = ((event.clientX - bounds.left) / bounds.width) * props.duration;
   let index = 0,
@@ -42,7 +59,7 @@ function pick(event: MouseEvent) {
       index = i;
     }
   });
-  select('sample', index);
+  select('sample', index, false);
 }
 function commit() {
   const s = selection.value;
@@ -126,7 +143,7 @@ function remove() {
             })
           "
       /></label>
-      <div class="cursor-events movement-events" @click="pick">
+      <div class="cursor-events movement-events" @pointerdown="scrub($event, true)">
         <div class="cursor-playhead" :style="{ left: (currentTime / duration) * 100 + '%' }" />
         <i
           v-for="(p, i) in points"
@@ -146,7 +163,7 @@ function remove() {
         <Icon :name="track.clicksVisible ? 'eye' : 'eye-slash'" />
       </button>
       <span>{{ text('Mouse clicks', 'Kliknięcia myszy') }} · {{ track.clicks.length }}</span>
-      <div class="cursor-events">
+      <div class="cursor-events clicks-events" @pointerdown="scrub($event)">
         <div class="cursor-playhead" :style="{ left: (currentTime / duration) * 100 + '%' }" />
         <button
           v-for="(click, i) in track.clicks"
@@ -158,7 +175,8 @@ function remove() {
             width: Math.max(0.7, ((click.end - click.t) / duration) * 100) + '%',
           }"
           :title="`${click.button} · ${click.t.toFixed(3)}–${click.end.toFixed(3)}s`"
-          @click="select('click', i)"
+          @pointerdown="select('click', i, false)"
+          @keydown.enter="select('click', i)"
         >
           {{ click.button[0].toUpperCase() }}
         </button>
@@ -268,6 +286,7 @@ function remove() {
   }
 }
 .cursor-events {
+  touch-action: none;
   position: relative;
   grid-column: 1 / -1;
   width: 100%;

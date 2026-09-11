@@ -5,6 +5,7 @@ const invoke =
   (...args: unknown[]) =>
     ipcRenderer.invoke(channel, ...args);
 const api: CutterAPI = {
+  trayAction: invoke('tray:action'),
   platform: process.platform,
   settings: invoke('settings:get'),
   saveSettings: invoke('settings:save'),
@@ -29,6 +30,7 @@ const api: CutterAPI = {
   window: invoke('window:action'),
   on: <K extends keyof Events>(channel: K, callback: (data: Events[K]) => void) => {
     const allowed = [
+      'tray-refresh',
       'media',
       'status',
       'export-progress',

@@ -13,10 +13,10 @@ async function main(){
  execFileSync(ffmpeg,['-hide_banner','-loglevel','error','-y','-f','lavfi','-i','testsrc2=size=640x360:rate=24','-f','lavfi','-i','sine=frequency=440:sample_rate=44100','-t','3','-c:v','libx264','-pix_fmt','yuv420p','-c:a','aac',video],{windowsHide:true});
  await fs.writeFile(path.join(dir,'settings.json'),JSON.stringify({folder:path.join(dir,'outputs'),shortcut:'Control+Alt+Shift+9'}));
  const app=await electron.launch({args:[root],env:{...process.env,CUTTER_TEST_HOME:dir}});
- const page=await app.firstWindow(); const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')console.log('console:',m.text());});
+ const page=await require('./app-window.cjs')(app); const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')console.log('console:',m.text());});
  try {
  await page.waitForSelector('#empty-capture');await page.screenshot({path:path.join(dir,'empty.png')});
- async function importMedia(file){const m=await page.evaluate(file=>window.cutter.importFile(file),file);await app.evaluate(({BrowserWindow},m)=>BrowserWindow.getAllWindows()[0].webContents.send('media',m),m);await page.waitForFunction(name=>document.getElementById('project-name').textContent===name,m.name.replace(/\.[^.]+$/,''));await page.waitForTimeout(150);}
+ async function importMedia(file){const m=await page.evaluate(file=>window.cutter.importFile(file),file);await app.evaluate(({BrowserWindow},m)=>BrowserWindow.getAllWindows().find(w => w.webContents.getURL().includes('page=index')).webContents.send('media',m),m);await page.waitForFunction(name=>document.getElementById('project-name').textContent===name,m.name.replace(/\.[^.]+$/,''));await page.waitForTimeout(150);}
  await importMedia(image);
  await page.locator('#radius-value').fill('24');await page.locator('#width').fill('800');await page.locator('#height').fill('600');
  await page.locator('#crop-tab').click();

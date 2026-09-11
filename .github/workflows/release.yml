@@ -50,6 +50,8 @@ jobs:
         run: mise exec -- node tests/editor12.cjs --packaged
       - name: Verify cursor layers and native helpers
         run: mise exec -- node tests/cursor.cjs --packaged
+      - name: Verify seeking, fullscreen and tray
+        run: mise exec -- node tests/editor14.cjs --packaged
       - name: Upload installers
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -68,6 +70,7 @@ jobs:
             .local-test/release-profile/*.png
             .local-test/editor12/*.png
             .local-test/cursor-test/*.png
+            .local-test/editor14/*.png
           if-no-files-found: ignore
 
   publish:

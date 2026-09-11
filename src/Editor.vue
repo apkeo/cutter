@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref, onMounted, onUnmounted } from 'vue';
 import Icon from './components/Icon.vue';
 import CursorTimeline from './components/CursorTimeline.vue';
 import { useEditor, time } from './useEditor';
@@ -70,6 +71,28 @@ const {
   render,
   fileAction,
 } = useEditor();
+const fullscreen = ref(false);
+function syncFullscreen() {
+  fullscreen.value = !!document.fullscreenElement;
+}
+async function toggleFullscreen() {
+  await guard(() =>
+    document.fullscreenElement
+      ? document.exitFullscreen()
+      : document.querySelector<HTMLElement>('.workspace')!.requestFullscreen(),
+  );
+}
+function exitFullscreen(event: KeyboardEvent) {
+  if (event.key === 'Escape' && document.fullscreenElement) void guard(() => document.exitFullscreen());
+}
+onMounted(() => {
+  document.addEventListener('fullscreenchange', syncFullscreen);
+  document.addEventListener('keydown', exitFullscreen);
+});
+onUnmounted(() => {
+  document.removeEventListener('fullscreenchange', syncFullscreen);
+  document.removeEventListener('keydown', exitFullscreen);
+});
 const handles = ['n', 's', 'e', 'w', 'nw', 'ne', 'sw', 'se'];
 </script>
 
@@ -163,8 +186,13 @@ const handles = ['n', 's', 'e', 'w', 'nw', 'ne', 'sw', 'se'];
               ><button
                 id="fit"
                 class="icon-button"
-                title="Fit media"
-                @click="fitMedia"
+                :title="
+                  fullscreen
+                    ? text('Exit fullscreen (Esc)', 'Zamknij pełny ekran (Esc)')
+                    : text('Fullscreen preview', 'Podgląd pełnoekranowy')
+                "
+                :aria-pressed="fullscreen"
+                @click="toggleFullscreen"
                 :disabled="!media"
               >
                 <Icon name="maximize" />
@@ -599,7 +627,7 @@ const handles = ['n', 's', 'e', 'w', 'nw', 'ne', 'sw', 'se'];
           ><span id="status">{{
             loading ? text('Preparing media…', 'Przygotowywanie mediów…') : status || t('ready')
           }}</span></span
-        ><span>CUTTER <span class="muted">/</span> 1.3</span>
+        ><span>CUTTER <span class="muted">/</span> 1.4</span>
       </footer>
     </main>
   </div>
@@ -655,6 +683,19 @@ const handles = ['n', 's', 'e', 'w', 'nw', 'ne', 'sw', 'se'];
         t('showCursor')
       }}</span></label
     >
+    <label class="checkbox-row"
+      ><input id="setting-tray" type="checkbox" v-model="draft.minimizeToTray" /><span>{{
+        text('Minimize to tray', 'Minimalizuj do traya')
+      }}</span></label
+    >
+    <p class="field-hint">
+      {{
+        text(
+          'Keep Cutter ready in the system tray or menu bar when minimized.',
+          'Po zminimalizowaniu Cutter czeka w zasobniku systemowym lub na pasku menu.',
+        )
+      }}
+    </p>
     <p class="field-hint">{{ t('audioNote') }}</p>
     <p id="settings-error" class="error">{{ settingsError }}</p>
     <button id="save-settings" class="button primary full" @click="saveSettings">
@@ -726,4 +767,12 @@ const handles = ['n', 's', 'e', 'w', 'nw', 'ne', 'sw', 'se'];
 
 <style lang="scss">
 @use './styles/base';
+.workspace:fullscreen {
+  width: 100vw;
+  height: 100vh;
+  background: #111312;
+  .stage {
+    min-height: 0;
+  }
+}
 </style>

@@ -9,7 +9,7 @@ const assert = require('node:assert/strict');
  await fs.writeFile(path.join(profile,'settings.json'), JSON.stringify({shortcut:'Control+Alt+Shift+8'}));
  const app = await electron.launch({args:[root],env:{...process.env,CUTTER_TEST_HOME:profile}});
  try {
-  const page = await app.firstWindow(); await page.waitForSelector('#empty-capture');
+  const page = await require('./app-window.cjs')(app); await page.waitForSelector('#empty-capture');
   const opened = app.waitForEvent('window'); await page.evaluate(()=>window.cutter.picker());
   const picker = await opened; await picker.waitForSelector('#selection');
   const nativeBounds = await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows().find(w=>w.webContents.getURL().includes("picker")).getBounds());

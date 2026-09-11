@@ -14,13 +14,13 @@
 
 ## Download
 
-**[Get Cutter 1.3 →](https://github.com/apkeo/cutter/releases/latest)**
+**[Get Cutter 1.4 →](https://github.com/apkeo/cutter/releases/latest)**
 
 | Platform | Installer | Portable |
 | --- | --- | --- |
-| **Windows 10/11** · x64 | [Download .exe](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.3.0-win-x64.exe) | [Download .zip](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.3.0-win-x64.zip) |
-| **macOS 13+** · Apple Silicon | [Download .dmg](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.3.0-mac-arm64.dmg) | [Download .zip](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.3.0-mac-arm64.zip) |
-| **macOS 13+** · Intel | [Download .dmg](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.3.0-mac-x64.dmg) | [Download .zip](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.3.0-mac-x64.zip) |
+| **Windows 10/11** · x64 | [Download .exe](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.4.0-win-x64.exe) | [Download .zip](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.4.0-win-x64.zip) |
+| **macOS 13+** · Apple Silicon | [Download .dmg](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.4.0-mac-arm64.dmg) | [Download .zip](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.4.0-mac-arm64.zip) |
+| **macOS 13+** · Intel | [Download .dmg](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.4.0-mac-x64.dmg) | [Download .zip](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.4.0-mac-x64.zip) |
 
 No account. No subscription. No upload. FFmpeg is included; nothing else to install.
 
@@ -110,7 +110,7 @@ TypeScript 6.0.3 is pinned for compatibility with current `vue-tsc`. See [develo
 
 ## Releases
 
-GitHub Actions builds native Windows x64, macOS ARM64 and macOS Intel packages. It verifies the packaged app and media exports on each runner. Tags such as `v1.3.0` publish a release **only after all three platform jobs pass**, with downloadable installers, portable archives and SHA-256 checksums.
+GitHub Actions builds native Windows x64, macOS ARM64 and macOS Intel packages. It verifies the packaged app and media exports on each runner. Tags such as `v1.4.0` publish a release **only after all three platform jobs pass**, with downloadable installers, portable archives and SHA-256 checksums.
 
 ## Contributing
 
@@ -141,3 +141,11 @@ Two aligned timeline rows let you show/hide the pointer and click effects indepe
 Recordings with the real cursor enabled retain that cursor in their pixels; the editor cannot remove a cursor already baked into a video. Imported videos without a sidecar have no recorded cursor data. Unrecognized custom cursor artwork falls back to an arrow and can be corrected on the timeline.
 
 On macOS, allow **Screen Recording** and **Input Monitoring** for Cutter in System Settings → Privacy & Security. Cursor tracking observes mouse events only, starts with recording preparation, and stops when recording stops. Screen recording uses ScreenCaptureKit with explicit system-cursor visibility control.
+
+### Quick Capture, always within reach
+
+<img src="docs/screenshots/quick-capture.png" alt="Cutter Quick Capture tray menu" width="340" />
+
+Minimize Cutter to the Windows system tray or macOS menu bar, then open its custom Quick Capture menu to start a capture, return to the studio, copy your latest saved file, or open the captures folder. **Minimize to tray** is enabled by default and can be turned off in Settings.
+
+Click or drag anywhere inside the video, cursor movement, or mouse click lanes to seek precisely. Click blocks still select their editable event without pulling playback back to the start of the click. The fullscreen button beside the zoom percentage expands the workspace; press **Esc** or click it again to return without changing your composition.

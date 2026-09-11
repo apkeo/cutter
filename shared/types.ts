@@ -21,6 +21,8 @@ export interface Composition {
   end: number;
 }
 export interface Settings {
+  minimizeToTray: boolean;
+  lastSavedFile?: string;
   shortcut: string;
   folder: string;
   language: 'en' | 'pl';
@@ -61,6 +63,7 @@ export interface ExportResult {
   name: string;
 }
 export interface Events {
+  'tray-refresh': undefined;
   media: Media;
   status: string;
   'export-progress': number;
@@ -77,6 +80,7 @@ export interface CaptureSession {
   mode: 'screenshot' | 'record';
 }
 export interface CutterAPI {
+  trayAction(action: 'open' | 'capture' | 'copy' | 'folder' | 'quit' | 'dismiss'): Promise<void>;
   platform: string;
   settings(): Promise<Settings>;
   saveSettings(settings: Partial<Settings>): Promise<Settings>;
