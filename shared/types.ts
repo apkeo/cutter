@@ -63,7 +63,6 @@ export interface ExportResult {
   name: string;
 }
 export interface Events {
-  'fullscreen-ready': undefined;
   'tray-refresh': undefined;
   media: Media;
   status: string;
@@ -107,7 +106,7 @@ export interface CutterAPI {
   export(request: ExportRequest): Promise<ExportResult>;
   cancelExport(): Promise<void>;
   fileAction(action: 'path' | 'copy' | 'reveal', file: string): Promise<boolean>;
-  window(action: 'minimize' | 'maximize' | 'close'): Promise<void>;
+  window(action: 'minimize' | 'maximize' | 'close' | 'preview-fullscreen' | 'preview-windowed'): Promise<void>;
   on<K extends keyof Events>(channel: K, callback: (data: Events[K]) => void): () => void;
 }
 declare global {

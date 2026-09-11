@@ -73,42 +73,31 @@ const {
 } = useEditor();
 const fullscreen = ref(false);
 const fullscreenTransition = ref(false);
-let pendingFullscreenExit = false;
-let unsubscribeFullscreen: (() => void) | undefined;
 function syncFullscreen() {
-  fullscreen.value = !!document.fullscreenElement;
+  if (api.platform !== 'darwin') fullscreen.value = !!document.fullscreenElement;
 }
 async function toggleFullscreen() {
   if (fullscreenTransition.value) return;
-  fullscreenTransition.value = api.platform === 'darwin';
-  await guard(() =>
-    document.fullscreenElement
-      ? document.exitFullscreen()
-      : document.querySelector<HTMLElement>('.workspace')!.requestFullscreen().catch(error => {
-          fullscreenTransition.value = false;
-          throw error;
-        }),
-  );
+  fullscreenTransition.value = true;
+  try {
+    await guard(async () => {
+      if (api.platform === 'darwin') {
+        const enabled = !fullscreen.value;
+        await api.window(enabled ? 'preview-fullscreen' : 'preview-windowed');
+        fullscreen.value = enabled;
+      } else if (document.fullscreenElement) await document.exitFullscreen();
+      else await document.querySelector<HTMLElement>('.workspace')!.requestFullscreen();
+    });
+  } finally { fullscreenTransition.value = false; }
 }
 function exitFullscreen(event: KeyboardEvent) {
-  if (event.key === 'Escape' && document.fullscreenElement) {
-    if (fullscreenTransition.value) pendingFullscreenExit = true;
-    else void toggleFullscreen();
-  }
+  if (event.key === 'Escape' && fullscreen.value) void toggleFullscreen();
 }
 onMounted(() => {
-  unsubscribeFullscreen = api.on('fullscreen-ready', () => {
-    fullscreenTransition.value = false;
-    if (pendingFullscreenExit) {
-      pendingFullscreenExit = false;
-      if (document.fullscreenElement) void toggleFullscreen();
-    }
-  });
   document.addEventListener('fullscreenchange', syncFullscreen);
   document.addEventListener('keydown', exitFullscreen);
 });
 onUnmounted(() => {
-  unsubscribeFullscreen?.();
   document.removeEventListener('fullscreenchange', syncFullscreen);
   document.removeEventListener('keydown', exitFullscreen);
 });
@@ -179,7 +168,7 @@ const handles = ['n', 's', 'e', 'w', 'nw', 'ne', 'sw', 'se'];
         </div>
       </section>
       <div class="editor-layout">
-        <section class="workspace">
+        <section class="workspace" :class="{ 'preview-fullscreen': fullscreen }">
           <div class="stage-toolbar">
             <div class="segment">
               <button id="compose-tab" :class="{ selected: !cropMode }" @click="cropMode = false">
@@ -646,7 +635,7 @@ const handles = ['n', 's', 'e', 'w', 'nw', 'ne', 'sw', 'se'];
           ><span id="status">{{
             loading ? text('Preparing media…', 'Przygotowywanie mediów…') : status || t('ready')
           }}</span></span
-        ><span>CUTTER <span class="muted">/</span> 1.4</span>
+        ><span>CUTTER <span class="muted">/</span> 1.4.1</span>
       </footer>
     </main>
   </div>
@@ -786,7 +775,11 @@ const handles = ['n', 's', 'e', 'w', 'nw', 'ne', 'sw', 'se'];
 
 <style lang="scss">
 @use './styles/base';
-.workspace:fullscreen {
+.workspace:fullscreen,
+.workspace.preview-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
   width: 100vw;
   height: 100vh;
   background: #111312;

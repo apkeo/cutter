@@ -799,8 +799,6 @@ app
     main.on('show', () => {
       if (process.platform === 'darwin') void app.dock?.show();
     });
-    main.on('enter-full-screen', () => send('fullscreen-ready', undefined));
-    main.on('leave-full-screen', () => send('fullscreen-ready', undefined));
     main.on('minimize', () => {
       if (settings.minimizeToTray) minimizeStudio();
     });
@@ -1036,6 +1034,7 @@ app
       if (action === 'minimize') settings.minimizeToTray ? minimizeStudio() : main.minimize();
       if (action === 'maximize') main.isMaximized() ? main.unmaximize() : main.maximize();
       if (action === 'close') main.close();
+      if (process.platform === 'darwin' && (action === 'preview-fullscreen' || action === 'preview-windowed')) main.setSimpleFullScreen(action === 'preview-fullscreen');
     });
     handle('export:start', async (_, input: ExportRequest) => {
       if (exporting) throw new Error('An export is already running.');

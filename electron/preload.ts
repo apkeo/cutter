@@ -30,7 +30,6 @@ const api: CutterAPI = {
   window: invoke('window:action'),
   on: <K extends keyof Events>(channel: K, callback: (data: Events[K]) => void) => {
     const allowed = [
-      'fullscreen-ready',
       'tray-refresh',
       'media',
       'status',

@@ -28,9 +28,10 @@ const { execFileSync } = require('node:child_process');
       const b=await page.locator(selector).boundingBox();await page.mouse.move(b.x+b.width*.2,b.y+12);await page.mouse.down();await page.mouse.move(b.x+b.width*.85,b.y+12,{steps:8});await page.mouse.up();
       await page.waitForFunction(()=>!window.video.seeking && Math.abs(window.video.currentTime-2.55)<.04);
     }
-    const before=await page.locator('#canvas-info').textContent();await page.locator('#fit').click();await page.waitForFunction(()=>!!document.fullscreenElement);assert.equal(await page.locator('#canvas-info').textContent(),before);
-    await page.locator('#fit').click();await page.waitForFunction(()=>!document.fullscreenElement);
-    await page.locator('#fit').click();await page.waitForFunction(()=>!!document.fullscreenElement);await page.keyboard.press('Escape');await page.waitForFunction(()=>!document.fullscreenElement);
+    const before=await page.locator('#canvas-info').textContent();await page.locator('#fit').click();await page.waitForFunction(()=>document.querySelector('.workspace').classList.contains('preview-fullscreen'));assert.equal(await page.locator('#canvas-info').textContent(),before);
+    if(process.platform==='darwin') assert.equal(await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows().find(w=>w.webContents.getURL().includes('page=index')).isSimpleFullScreen()),true,'Native Mac window is fullscreen');
+    await page.locator('#fit').click();await page.waitForFunction(()=>!document.querySelector('.workspace').classList.contains('preview-fullscreen'));
+    await page.locator('#fit').click();await page.waitForFunction(()=>document.querySelector('.workspace').classList.contains('preview-fullscreen'));await page.keyboard.press('Escape');await page.waitForFunction(()=>!document.querySelector('.workspace').classList.contains('preview-fullscreen'));
     assert.equal((await page.evaluate(()=>window.cutter.settings())).minimizeToTray,true);
     await page.evaluate(()=>window.cutter.window('minimize'));
     assert.equal(await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows().find(w=>w.webContents.getURL().includes('page=index')).isVisible()),false);
@@ -58,7 +59,7 @@ const { execFileSync } = require('node:child_process');
   } catch (e) {
     for (const p of app.windows()) if (p.url().includes('page=index')) {
       await p.screenshot({path:path.join(profile,'failure.png')}).catch(()=>{});
-      console.error(await p.evaluate(()=>({fullscreen:!!document.fullscreenElement,button:document.querySelector('#fit')?.outerHTML,toast:document.querySelector('#toast')?.textContent})).catch(()=>({})));
+      console.error(await p.evaluate(()=>({fullscreen:document.querySelector('.workspace').classList.contains('preview-fullscreen'),button:document.querySelector('#fit')?.outerHTML,toast:document.querySelector('#toast')?.textContent})).catch(()=>({})));
     }
     throw e;
   } finally { await app.close(); }

@@ -14,13 +14,13 @@
 
 ## Download
 
-**[Get Cutter 1.4 →](https://github.com/apkeo/cutter/releases/latest)**
+**[Get Cutter 1.4.1 →](https://github.com/apkeo/cutter/releases/latest)**
 
 | Platform | Installer | Portable |
 | --- | --- | --- |
-| **Windows 10/11** · x64 | [Download .exe](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.4.0-win-x64.exe) | [Download .zip](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.4.0-win-x64.zip) |
-| **macOS 13+** · Apple Silicon | [Download .dmg](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.4.0-mac-arm64.dmg) | [Download .zip](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.4.0-mac-arm64.zip) |
-| **macOS 13+** · Intel | [Download .dmg](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.4.0-mac-x64.dmg) | [Download .zip](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.4.0-mac-x64.zip) |
+| **Windows 10/11** · x64 | [Download .exe](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.4.1-win-x64.exe) | [Download .zip](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.4.1-win-x64.zip) |
+| **macOS 13+** · Apple Silicon | [Download .dmg](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.4.1-mac-arm64.dmg) | [Download .zip](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.4.1-mac-arm64.zip) |
+| **macOS 13+** · Intel | [Download .dmg](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.4.1-mac-x64.dmg) | [Download .zip](https://github.com/apkeo/cutter/releases/latest/download/Cutter-1.4.1-mac-x64.zip) |
 
 No account. No subscription. No upload. FFmpeg is included; nothing else to install.
 
@@ -110,7 +110,7 @@ TypeScript 6.0.3 is pinned for compatibility with current `vue-tsc`. See [develo
 
 ## Releases
 
-GitHub Actions builds native Windows x64, macOS ARM64 and macOS Intel packages. It verifies the packaged app and media exports on each runner. Tags such as `v1.4.0` publish a release **only after all three platform jobs pass**, with downloadable installers, portable archives and SHA-256 checksums.
+GitHub Actions builds native Windows x64, macOS ARM64 and macOS Intel packages. It verifies the packaged app and media exports on each runner. Tags such as `v1.4.1` publish a release **only after all three platform jobs pass**, with downloadable installers, portable archives and SHA-256 checksums.
 
 ## Contributing
 
