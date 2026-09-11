@@ -799,6 +799,8 @@ app
     main.on('show', () => {
       if (process.platform === 'darwin') void app.dock?.show();
     });
+    main.on('enter-full-screen', () => send('fullscreen-ready', undefined));
+    main.on('leave-full-screen', () => send('fullscreen-ready', undefined));
     main.on('minimize', () => {
       if (settings.minimizeToTray) minimizeStudio();
     });

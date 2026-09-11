@@ -55,5 +55,11 @@ const { execFileSync } = require('node:child_process');
     await page.evaluate(()=>window.cutter.cancelPicker());
     assert.equal(JSON.parse(await fs.readFile(path.join(profile,'settings.json'),'utf8')).minimizeToTray,true);
     console.log('PASS: exact decoded-frame seeking on every lane, held event selection, drag seeking, fullscreen, default tray, restore, disabled tray, quick actions and persistence.');
+  } catch (e) {
+    for (const p of app.windows()) if (p.url().includes('page=index')) {
+      await p.screenshot({path:path.join(profile,'failure.png')}).catch(()=>{});
+      console.error(await p.evaluate(()=>({fullscreen:!!document.fullscreenElement,button:document.querySelector('#fit')?.outerHTML,toast:document.querySelector('#toast')?.textContent})).catch(()=>({})));
+    }
+    throw e;
   } finally { await app.close(); }
 })().catch(e=>{console.error(e);process.exitCode=1;});

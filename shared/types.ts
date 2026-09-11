@@ -63,6 +63,7 @@ export interface ExportResult {
   name: string;
 }
 export interface Events {
+  'fullscreen-ready': undefined;
   'tray-refresh': undefined;
   media: Media;
   status: string;

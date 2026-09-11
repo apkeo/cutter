@@ -72,24 +72,43 @@ const {
   fileAction,
 } = useEditor();
 const fullscreen = ref(false);
+const fullscreenTransition = ref(false);
+let pendingFullscreenExit = false;
+let unsubscribeFullscreen: (() => void) | undefined;
 function syncFullscreen() {
   fullscreen.value = !!document.fullscreenElement;
 }
 async function toggleFullscreen() {
+  if (fullscreenTransition.value) return;
+  fullscreenTransition.value = api.platform === 'darwin';
   await guard(() =>
     document.fullscreenElement
       ? document.exitFullscreen()
-      : document.querySelector<HTMLElement>('.workspace')!.requestFullscreen(),
+      : document.querySelector<HTMLElement>('.workspace')!.requestFullscreen().catch(error => {
+          fullscreenTransition.value = false;
+          throw error;
+        }),
   );
 }
 function exitFullscreen(event: KeyboardEvent) {
-  if (event.key === 'Escape' && document.fullscreenElement) void guard(() => document.exitFullscreen());
+  if (event.key === 'Escape' && document.fullscreenElement) {
+    if (fullscreenTransition.value) pendingFullscreenExit = true;
+    else void toggleFullscreen();
+  }
 }
 onMounted(() => {
+  unsubscribeFullscreen = api.on('fullscreen-ready', () => {
+    fullscreenTransition.value = false;
+    if (pendingFullscreenExit) {
+      pendingFullscreenExit = false;
+      if (document.fullscreenElement) void toggleFullscreen();
+    }
+  });
   document.addEventListener('fullscreenchange', syncFullscreen);
   document.addEventListener('keydown', exitFullscreen);
 });
 onUnmounted(() => {
+  unsubscribeFullscreen?.();
   document.removeEventListener('fullscreenchange', syncFullscreen);
   document.removeEventListener('keydown', exitFullscreen);
 });
@@ -193,7 +212,7 @@ const handles = ['n', 's', 'e', 'w', 'nw', 'ne', 'sw', 'se'];
                 "
                 :aria-pressed="fullscreen"
                 @click="toggleFullscreen"
-                :disabled="!media"
+                :disabled="!media || fullscreenTransition"
               >
                 <Icon name="maximize" />
               </button>
