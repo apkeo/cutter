@@ -14,6 +14,7 @@ Cutter invokes FFmpeg and FFprobe as separate local processes. Their original no
 
 - **Electron** — MIT; Chromium and Node.js have their own notices, shipped in the Electron distribution.
 - **Vue** — MIT.
+- **playwright-core** — Apache-2.0, and **yaml** — ISC. Used by the command line only; they are not packaged in the installers.
 - **Vite, TypeScript, Sass, esbuild, Playwright, electron-builder and mise** — development/build tools with their respective upstream licenses. See `package-lock.json` for the exact dependency tree.
 
 The automatically generated GitHub source archives contain Cutter's complete application source. Binary users can rebuild Cutter using `.tool-versions`, `package-lock.json`, and the checked-in release workflow. Third-party library sources and original license notices are available through the links above and bundled package metadata.

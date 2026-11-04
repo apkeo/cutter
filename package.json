@@ -3,6 +3,9 @@
   "version": "1.4.1",
   "description": "Capture a little. Make a big impression. A local-first screen capture and composition studio for Windows and macOS.",
   "main": "dist/electron/main.cjs",
+  "bin": {
+    "cutter": "dist/cli/cutter.cjs"
+  },
   "author": "Apkeo",
   "private": true,
   "scripts": {
@@ -15,6 +18,8 @@
     "pack": "npm run build && electron-builder --dir",
     "dist": "npm run build && electron-builder --win nsis",
     "test:capture": "npm run build && node tests/capture.cjs",
+    "test:cli": "node scripts/build.mjs && node --test tests/cli.test.cjs",
+    "cli": "node dist/cli/cutter.cjs",
     "format": "prettier --write \"src/**/*.{ts,vue,scss}\" \"electron/*.ts\" \"shared/*.ts\"",
     "dist:mac": "npm run build && electron-builder --mac dmg zip --publish never",
     "dist:win": "npm run build && electron-builder --win nsis zip --publish never",
@@ -28,7 +33,9 @@
     "@napi-rs/canvas": "1.0.9",
     "ffmpeg-static": "5.3.0",
     "ffprobe-static": "3.1.0",
-    "vue": "^3.5.42"
+    "playwright-core": "1.63.0",
+    "vue": "^3.5.42",
+    "yaml": "2.9.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.0",
@@ -56,6 +63,9 @@
       "assets/trayTemplate.png",
       "LICENSE",
       "THIRD_PARTY_NOTICES.md",
+      "!dist/cli/**/*",
+      "!node_modules/playwright-core/**/*",
+      "!node_modules/yaml/**/*",
       "!node_modules/ffprobe-static/bin/linux/**/*"
     ],
     "asarUnpack": [

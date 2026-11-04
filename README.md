@@ -87,6 +87,18 @@ Screen recordings capture **video only**. Audio already present in imported vide
 - **Save location:** `Videos/Cutter` on Windows and `Movies/Cutter` on macOS. Change the folder, shortcut, capture FPS and language in Settings.
 - **Stopping a recording:** use the floating Stop control or press the capture shortcut again. When no control can fit outside your selected region, use the shortcut.
 
+## Command line
+
+Record and compose without a window or a desktop session: `cutter capture` drives a headless browser through a scripted scenario, and `cutter render` runs the same composition and export as the studio.
+
+```sh
+cutter capture --url https://example.com --selector "main h1" --padding 16 --out title.png
+cutter capture --spec scenario.yaml --out ./raw
+cutter render ./raw/clip.mp4 --max-width 1920 --out clip.mp4
+```
+
+See [the CLI guide](docs/CLI.md).
+
 ## Development
 
 Vue **3.5.42**, TypeScript, Electron **44**, Vite and SCSS. Every Vue component uses `<script setup lang="ts">`, followed by `<template>` and `<style lang="scss">`. Node is pinned in `.tool-versions` and managed through **mise**.
