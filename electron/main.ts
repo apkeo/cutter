@@ -1,6 +1,7 @@
 import { QuickTray } from './tray';
 import { CursorRecorder, nativePath, validateTrack } from './cursor';
-import { renderCursorOverlay } from './cursor-render';
+import { exportMedia } from './export';
+import { probeMedia, run } from './media';
 import type { CursorTrack } from '../shared/cursor';
 import {
   app,
@@ -23,11 +24,10 @@ import type { ChildProcessWithoutNullStreams } from 'node:child_process';
 import type { Settings, Media, ExportRequest, Rect, CaptureSession } from '../shared/types';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import os from 'node:os';
 import { spawn } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import crypto from 'node:crypto';
-import { classify, composition, exportArgs, IMAGE_EXT, VIDEO_EXT } from './model';
+import { IMAGE_EXT, VIDEO_EXT } from './model';
 const unpack = (p: string) => p.replace('app.asar', 'app.asar.unpacked');
 const ffmpeg = unpack(require('ffmpeg-static') as string);
 const ffprobe = unpack(require('ffprobe-static').path);
@@ -96,6 +96,7 @@ let recording: {
   stopping: boolean;
 } | null;
 let exporting: (ChildProcessWithoutNullStreams & { cancelled?: boolean }) | null;
+const exportCancelled = () => exporting?.cancelled === true;
 let picking = false;
 let browserCapture: {
   window: BrowserWindow;
@@ -160,111 +161,20 @@ function report(e: unknown) {
   send('error', e instanceof Error ? e.message : String(e));
   main?.show();
 }
-function run(
-  binary: string,
-  args: string[],
-  onProgress?: (text: string) => void,
-  env?: NodeJS.ProcessEnv,
-): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(binary, args, { windowsHide: true, env });
-    let stdout = '',
-      stderr = '';
-    child.stdout.on('data', (data) => {
-      stdout += data;
-      onProgress?.(String(data));
-    });
-    child.stderr.on('data', (data) => {
-      stderr = (stderr + data).slice(-6000);
-    });
-    child.on('error', reject);
-    child.on('close', (code) =>
-      code === 0 ? resolve(stdout) : reject(new Error(stderr || `Media process exited (${code})`)),
-    );
-  });
-}
 function asset(file: string) {
   const id = crypto.randomUUID();
   assets.set(id, file);
   return `cutter-media://asset/${id}`;
 }
 async function inspect(file: string): Promise<Media> {
-  const kind = classify(file);
-  const stat = await fs.stat(file);
-  if (!stat.isFile()) throw new Error('Choose a media file.');
-  const info: {
-    streams: {
-      codec_type: string;
-      codec_name: string;
-      width: number;
-      height: number;
-      avg_frame_rate?: string;
-      r_frame_rate?: string;
-      duration?: string;
-      side_data_list?: { rotation?: number }[];
-      tags?: { rotate?: string };
-    }[];
-    format: { duration?: string };
-  } = JSON.parse(
-    await run(ffprobe, ['-v', 'error', '-show_streams', '-show_format', '-of', 'json', file]),
-  );
-  const video = info.streams.find((s) => s.codec_type === 'video');
-  if (!video) throw new Error('No image or video stream found.');
-  const [n, d] = (video.avg_frame_rate || video.r_frame_rate || '30/1').split('/').map(Number);
-  const rotation =
-    Math.abs(
-      Number(
-        video.side_data_list?.find((s) => s.rotation !== undefined)?.rotation ||
-          video.tags?.rotate ||
-          0,
-      ),
-    ) %
-      180 ===
-    90;
-  const media: Media = {
-    url: '',
-    id: crypto.randomUUID(),
-    path: file,
-    name: path.basename(file),
-    kind,
-    width: rotation ? video.height : video.width,
-    height: rotation ? video.width : video.height,
-    fps: n / d || 30,
-    duration: kind === 'image' ? 0 : Number(info.format.duration || video.duration || 0),
-    size: stat.size,
-    hasAudio: info.streams.some((stream) => stream.codec_type === 'audio'),
-  };
-  try {
-    const sidecar = JSON.parse(await fs.readFile(file + '.cutter.json', 'utf8'));
-    media.cursor = validateTrack(sidecar.edited);
-  } catch {}
-  if (kind === 'video' && !media.duration) {
-    const packets: { packets: { pts_time?: string; duration_time?: string }[] } = JSON.parse(
-      await run(ffprobe, [
-        '-v',
-        'error',
-        '-select_streams',
-        'v:0',
-        '-show_entries',
-        'packet=pts_time,duration_time',
-        '-of',
-        'json',
-        file,
-      ]),
-    );
-    media.duration = packets.packets.reduce(
-      (end, p) => Math.max(end, Number(p.pts_time || 0) + Number(p.duration_time || 0)),
-      0,
-    );
-  }
-  if (!media.width || !media.height || (kind === 'video' && !media.duration))
-    throw new Error('Could not read media dimensions or duration.');
+  const { media, codec, modifiedMs } = await probeMedia(file, ffprobe);
+  const { kind, size } = media;
   // Normalize preview only; exports always read the original source.
   const previewDir = path.join(app.getPath('userData'), 'previews');
   await fs.mkdir(previewDir, { recursive: true });
   const cacheKey = crypto
     .createHash('sha256')
-    .update(`${file}:${stat.size}:${stat.mtimeMs}`)
+    .update(`${file}:${size}:${modifiedMs}`)
     .digest('hex')
     .slice(0, 24);
   const exists = async (p: string) =>
@@ -284,7 +194,7 @@ async function inspect(file: string): Promise<Media> {
     kind === 'video' &&
     !(
       ['.mp4', '.m4v', '.webm'].includes(path.extname(file).toLowerCase()) &&
-      ['h264', 'vp8', 'vp9', 'av1'].includes(video.codec_name)
+      ['h264', 'vp8', 'vp9', 'av1'].includes(codec)
     )
   ) {
     send('status', 'Preparing preview…');
@@ -1043,77 +953,31 @@ app
       const formats =
         media.kind === 'image' ? ['png', 'jpg', 'webp'] : ['mp4', 'mov', 'webm', 'gif'];
       if (!formats.includes(input.format)) throw new Error('Unsupported export format.');
-      const c = composition(input.composition, media);
       for (const bytes of [input.background, input.mask])
         if (!bytes || bytes.byteLength > 64 * 1024 * 1024) throw new Error('Invalid render image.');
-      const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'cutter-export-'));
       const output = await outputPath('Cutter', input.format);
-      const bg = path.join(temp, 'background.png'),
-        mask = path.join(temp, 'mask.png');
       try {
-        await fs.writeFile(bg, Buffer.from(input.background));
-        await fs.writeFile(mask, Buffer.from(input.mask));
-        let overlay: string | undefined;
-        if (input.cursor && media.cursor && (input.cursor.visible || input.cursor.clicksVisible)) {
-          overlay = path.join(temp, 'cursor.mov');
-          await renderCursorOverlay(
-            ffmpeg,
-            overlay,
-            media,
-            c,
-            input.composition,
-            validateTrack(input.cursor),
-            (child) => {
-              exporting = child;
-            },
-          );
-        }
-        await new Promise<void>((resolve, reject) => {
-          const child = spawn(
-            ffmpeg,
-            exportArgs(media, c, input.format, bg, mask, output, overlay),
-            {
-              windowsHide: true,
-            },
-          );
-          exporting = child;
-          let errors = '',
-            progress = '';
-          child.stdout.on('data', (d) => {
-            progress += d;
-            const lines = progress.split('\n');
-            progress = lines.pop() || '';
-            for (const line of lines) {
-              const match = line.match(/^out_time_us=(\d+)/);
-              if (match)
-                send(
-                  'export-progress',
-                  Math.min(99, (Number(match[1]) / 1000000 / (c.end - c.start || 1)) * 100),
-                );
-            }
-          });
-          child.stderr.on('data', (d) => {
-            errors = (errors + d).slice(-5000);
-          });
-          child.on('error', reject);
-          child.on('close', (code) =>
-            code === 0
-              ? resolve()
-              : reject(
-                  new Error(
-                    exporting?.cancelled ? 'Export cancelled.' : errors || 'Export failed.',
-                  ),
-                ),
-          );
+        await exportMedia({
+          ffmpeg,
+          media,
+          composition: input.composition,
+          format: input.format,
+          background: input.background,
+          mask: input.mask,
+          cursor: input.cursor && media.cursor ? validateTrack(input.cursor) : undefined,
+          output,
+          onChild: (child) => {
+            exporting = child;
+          },
+          onProgress: (percent) => send('export-progress', percent),
         });
         await rememberOutput(output);
         return { path: output, name: path.basename(output) };
       } catch (e) {
         await fs.rm(output, { force: true });
-        throw e;
+        throw exportCancelled() ? new Error('Export cancelled.') : e;
       } finally {
         exporting = null;
-        await fs.rm(temp, { recursive: true, force: true });
       }
     });
     handle('export:cancel', () => {
